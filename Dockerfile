@@ -6,11 +6,13 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates curl && rm -
 
 WORKDIR /app
 
-# 1) Manifests primero (mejor caché de capas). Instala TODAS las deps (incluye dev).
+# 1) Manifests primero (mejor caché de capas). Instala TODAS las deps INCLUYENDO dev
+#    (vite, tsc y el CLI de prisma hacen falta para build). --include=dev fuerza su
+#    instalación aunque el entorno traiga NODE_ENV=production (caso de Coolify).
 COPY package*.json ./
 COPY server/package.json server/package.json
 COPY client/package.json client/package.json
-RUN npm ci
+RUN npm ci --include=dev
 
 # 2) Código y build: prisma generate + (client -> server/public, server -> server/dist)
 COPY . .
