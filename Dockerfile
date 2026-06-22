@@ -19,10 +19,11 @@ COPY . .
 RUN npm run prisma:generate -w server && npm run build
 
 ENV NODE_ENV=production
-EXPOSE 3000
+ENV PORT=4000
+EXPOSE 4000
 
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD curl -fsS http://localhost:3000/api/health || exit 1
+  CMD curl -fsS http://localhost:4000/api/health || exit 1
 
 # Aplica migraciones, siembra (idempotente: usuario + áreas + catálogos) y arranca.
 CMD ["sh", "-c", "npx --workspace server prisma migrate deploy && npm run seed -w server && npm start"]
