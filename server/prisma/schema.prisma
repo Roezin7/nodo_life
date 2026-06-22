@@ -1,0 +1,481 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================================================================
+//  NÚCLEO — usuario único + áreas de vida (Fase 0)
+// ===========================================================================
+
+// Un solo registro. Login = solo PIN (finanzas personales, dispositivo dedicado).
+model usuario {
+  id        BigInt   @id @default(autoincrement())
+  nombre    String
+  pin_hash  String
+  creado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+// Todo cuelga de un área de vida. Seed: Dinero · Salud · Trabajo/Proyectos · Crecimiento.
+model areas {
+  id     BigInt  @id @default(autoincrement())
+  nombre String
+  orden  Int     @default(0)
+  color  String  @default("#1F8EF1")
+  icono  String  @default("home")
+  activo Boolean @default(true)
+
+  categorias   categorias[]
+  movimientos  movimientos[]
+  presupuestos presupuestos[]
+  habitos      habitos[]
+  proyectos    proyectos[]
+  tareas       tareas[]
+  objetivos    objetivos[]
+
+  @@unique([nombre])
+}
+
+// Configuración key-value (cadencia de snapshot, hora de recordatorio de peso, etc.).
+model config {
+  clave String @id
+  valor String
+}
+
+// ===========================================================================
+//  FINANZAS PERSONALES (área Dinero) — Fase 1
+// ===========================================================================
+
+enum ClaseCategoria {
+  ingreso
+  gasto
+}
+
+enum TipoMovimiento {
+  ingreso
+  gasto
+  transferencia
+}
+
+enum EstadoCobro {
+  pendiente
+  cobrado
+}
+
+enum EstadoDeuda {
+  pendiente
+  pagado
+}
+
+model tipos_cuenta {
+  id      BigInt    @id @default(autoincrement())
+  nombre  String
+  cuentas cuentas[]
+
+  @@unique([nombre])
+}
+
+model cuentas {
+  id         BigInt       @id @default(autoincrement())
+  nombre     String
+  tipo_id    BigInt
+  moneda     String       @default("MXN")
+  // Saldo de arranque de la cuenta. El saldo actual = saldo_inicial + Σ movimientos.
+  // (Extensión sobre la spec: en finanzas personales el saldo se deriva, no se cuadra.)
+  saldo_inicial Decimal   @default(0) @db.Decimal(14, 2)
+  es_central Boolean      @default(false)
+  activo     Boolean      @default(true)
+  creado_at  DateTime     @default(now()) @db.Timestamptz(6)
+  tipo       tipos_cuenta @relation(fields: [tipo_id], references: [id])
+
+  mov_origen  movimientos[] @relation("mov_origen")
+  mov_destino movimientos[] @relation("mov_destino")
+
+  @@index([tipo_id])
+}
+
+model categorias {
+  id      BigInt         @id @default(autoincrement())
+  nombre  String
+  clase   ClaseCategoria
+  area_id BigInt?
+  activo  Boolean        @default(true)
+  area    areas?         @relation(fields: [area_id], references: [id])
+
+  movimientos  movimientos[]
+  presupuestos presupuestos[]
+
+  @@index([area_id])
+}
+
+model movimientos {
+  id                BigInt         @id @default(autoincrement())
+  fecha             DateTime       @db.Date
+  tipo              TipoMovimiento
+  monto             Decimal        @db.Decimal(14, 2)
+  cuenta_origen_id  BigInt?
+  cuenta_destino_id BigInt?
+  categoria_id      BigInt?
+  area_id           BigInt?
+  descripcion       String?
+  creado_at         DateTime       @default(now()) @db.Timestamptz(6)
+
+  cuenta_origen  cuentas?    @relation("mov_origen", fields: [cuenta_origen_id], references: [id])
+  cuenta_destino cuentas?    @relation("mov_destino", fields: [cuenta_destino_id], references: [id])
+  categoria      categorias? @relation(fields: [categoria_id], references: [id])
+  area           areas?      @relation(fields: [area_id], references: [id])
+
+  @@index([fecha])
+  @@index([categoria_id])
+  @@index([area_id])
+}
+
+model por_cobrar {
+  id          BigInt      @id @default(autoincrement())
+  descripcion String
+  deudor      String?
+  monto       Decimal     @db.Decimal(14, 2)
+  fecha       DateTime    @db.Date
+  estado      EstadoCobro @default(pendiente)
+  creado_at   DateTime    @default(now()) @db.Timestamptz(6)
+}
+
+model deudas {
+  id          BigInt      @id @default(autoincrement())
+  descripcion String
+  acreedor    String?
+  monto       Decimal     @db.Decimal(14, 2)
+  fecha       DateTime    @db.Date
+  estado      EstadoDeuda @default(pendiente)
+  creado_at   DateTime    @default(now()) @db.Timestamptz(6)
+}
+
+model presupuestos {
+  id           BigInt      @id @default(autoincrement())
+  categoria_id BigInt?
+  area_id      BigInt?
+  periodo      String      @default("mensual")
+  monto_limite Decimal     @db.Decimal(14, 2)
+  categoria    categorias? @relation(fields: [categoria_id], references: [id])
+  area         areas?      @relation(fields: [area_id], references: [id])
+
+  @@index([categoria_id])
+  @@index([area_id])
+}
+
+// ===========================================================================
+//  INVERSIONES — captura manual, valuación a mercado (Fase 2)
+// ===========================================================================
+
+enum ClaseActivo {
+  stock
+  etf
+  crypto
+}
+
+model posiciones {
+  id                  BigInt      @id @default(autoincrement())
+  ticker              String
+  nombre              String?
+  clase               ClaseActivo @default(etf)
+  cantidad            Decimal     @db.Decimal(18, 6)
+  precio_compra_prom  Decimal     @db.Decimal(18, 4)
+  moneda              String      @default("USD")
+  fecha_inicio        DateTime?   @db.Date
+  activo              Boolean     @default(true)
+  creado_at           DateTime    @default(now()) @db.Timestamptz(6)
+}
+
+model precios_cache {
+  ticker        String   @id
+  precio_actual Decimal  @db.Decimal(18, 4)
+  moneda        String   @default("USD")
+  actualizado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model fx_cache {
+  par           String   @id // p.ej. "USD/MXN"
+  tasa          Decimal  @db.Decimal(18, 6)
+  actualizado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+// ===========================================================================
+//  PATRIMONIO — snapshot genérico → tendencias (Fase 3)
+// ===========================================================================
+
+model snapshots_patrimonio {
+  id              BigInt   @id @default(autoincrement())
+  fecha           DateTime @db.Date
+  total_activos   Decimal  @db.Decimal(14, 2)
+  total_pasivos   Decimal  @db.Decimal(14, 2)
+  patrimonio_neto Decimal  @db.Decimal(14, 2)
+  desglose_json   Json
+  creado_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([fecha])
+}
+
+// ===========================================================================
+//  SALUD / FITNESS (área Salud) — Fase 4
+// ===========================================================================
+
+enum EtapaTipo {
+  deficit
+  volumen
+  mantenimiento
+}
+
+model peso_registros {
+  id    BigInt   @id @default(autoincrement())
+  fecha DateTime @db.Date
+  hora  String? // "HH:MM"
+  peso  Decimal  @db.Decimal(6, 2)
+
+  @@unique([fecha])
+  @@index([fecha])
+}
+
+model etapa_actual {
+  id    BigInt     @id @default(autoincrement())
+  tipo  EtapaTipo?
+  desde DateTime?  @db.Date
+  nota  String?
+}
+
+model tipos_entrenamiento {
+  id             BigInt          @id @default(autoincrement())
+  nombre         String
+  entrenamientos entrenamientos[]
+
+  @@unique([nombre])
+}
+
+model entrenamientos {
+  id           BigInt              @id @default(autoincrement())
+  fecha        DateTime            @db.Date
+  tipo_id      BigInt
+  duracion_min Int?
+  notas        String?
+  metricas_json Json?
+  creado_at    DateTime            @default(now()) @db.Timestamptz(6)
+  tipo         tipos_entrenamiento @relation(fields: [tipo_id], references: [id])
+  series       entrenamiento_series[]
+
+  @@index([fecha])
+  @@index([tipo_id])
+}
+
+model entrenamiento_series {
+  id               BigInt         @id @default(autoincrement())
+  entrenamiento_id BigInt
+  ejercicio        String
+  series           Int?
+  reps             Int?
+  peso             Decimal?       @db.Decimal(8, 2)
+  entrenamiento    entrenamientos @relation(fields: [entrenamiento_id], references: [id], onDelete: Cascade)
+
+  @@index([entrenamiento_id])
+}
+
+// ===========================================================================
+//  HÁBITOS — Fase 5
+// ===========================================================================
+
+enum TipoHabito {
+  binario
+  numerico
+  tiempo
+}
+
+enum FrecuenciaHabito {
+  diaria
+  semanal_x_veces
+}
+
+model habitos {
+  id               BigInt           @id @default(autoincrement())
+  nombre           String
+  area_id          BigInt
+  tipo             TipoHabito       @default(binario)
+  frecuencia       FrecuenciaHabito @default(diaria)
+  meta             Decimal?         @db.Decimal(10, 2)
+  recordatorio_hora String? // "HH:MM"
+  orden            Int              @default(0)
+  activo           Boolean          @default(true)
+  creado_at        DateTime         @default(now()) @db.Timestamptz(6)
+  area             areas            @relation(fields: [area_id], references: [id])
+  registros        habito_registros[]
+
+  @@index([area_id])
+}
+
+model habito_registros {
+  id         BigInt   @id @default(autoincrement())
+  habito_id  BigInt
+  fecha      DateTime @db.Date
+  valor      Decimal? @db.Decimal(10, 2)
+  completado Boolean  @default(false)
+  habito     habitos  @relation(fields: [habito_id], references: [id], onDelete: Cascade)
+
+  @@unique([habito_id, fecha])
+  @@index([habito_id])
+}
+
+// ===========================================================================
+//  TAREAS + PROYECTOS (fusionados) — Fase 6
+// ===========================================================================
+
+enum EstadoProyecto {
+  activo
+  pausado
+  hecho
+}
+
+enum PrioridadTarea {
+  baja
+  media
+  alta
+}
+
+enum EstadoTarea {
+  pendiente
+  hecha
+}
+
+model proyectos {
+  id          BigInt         @id @default(autoincrement())
+  nombre      String
+  area_id     BigInt
+  estado      EstadoProyecto @default(activo)
+  descripcion String?
+  orden       Int            @default(0)
+  creado_at   DateTime       @default(now()) @db.Timestamptz(6)
+  area        areas          @relation(fields: [area_id], references: [id])
+  tareas      tareas[]
+  avances     proyecto_avances[]
+
+  @@index([area_id])
+}
+
+model tareas {
+  id           BigInt         @id @default(autoincrement())
+  titulo       String
+  area_id      BigInt
+  proyecto_id  BigInt?
+  prioridad    PrioridadTarea @default(media)
+  fecha_vence  DateTime?      @db.Date
+  recurrencia  String?
+  estado       EstadoTarea    @default(pendiente)
+  notas        String?
+  completado_at DateTime?     @db.Timestamptz(6)
+  creado_at    DateTime       @default(now()) @db.Timestamptz(6)
+  area         areas          @relation(fields: [area_id], references: [id])
+  proyecto     proyectos?     @relation(fields: [proyecto_id], references: [id], onDelete: SetNull)
+
+  @@index([area_id])
+  @@index([proyecto_id])
+  @@index([fecha_vence])
+}
+
+model proyecto_avances {
+  id          BigInt    @id @default(autoincrement())
+  proyecto_id BigInt
+  fecha       DateTime  @db.Date
+  nota        String
+  proyecto    proyectos @relation(fields: [proyecto_id], references: [id], onDelete: Cascade)
+
+  @@index([proyecto_id])
+}
+
+// ===========================================================================
+//  OBJETIVOS / METAS — Fase 7
+// ===========================================================================
+
+enum HorizonteObjetivo {
+  trimestral
+  anual
+}
+
+enum EstadoObjetivo {
+  activo
+  logrado
+  vencido
+}
+
+enum FuenteVinculo {
+  manual
+  habito
+  proyecto
+  kpi_financiero
+}
+
+model objetivos {
+  id           BigInt            @id @default(autoincrement())
+  nombre       String
+  area_id      BigInt
+  horizonte    HorizonteObjetivo @default(trimestral)
+  metrica      String?
+  unidad       String?
+  meta_valor   Decimal           @db.Decimal(14, 2)
+  valor_actual Decimal           @default(0) @db.Decimal(14, 2)
+  fecha_inicio DateTime?         @db.Date
+  fecha_fin    DateTime?         @db.Date
+  estado       EstadoObjetivo    @default(activo)
+  creado_at    DateTime          @default(now()) @db.Timestamptz(6)
+  area         areas             @relation(fields: [area_id], references: [id])
+  vinculos     objetivo_vinculos[]
+
+  @@index([area_id])
+}
+
+model objetivo_vinculos {
+  id          BigInt        @id @default(autoincrement())
+  objetivo_id BigInt
+  fuente      FuenteVinculo
+  ref_id      BigInt?
+  objetivo    objetivos     @relation(fields: [objetivo_id], references: [id], onDelete: Cascade)
+
+  @@index([objetivo_id])
+}
+
+// ===========================================================================
+//  REVISIONES (ritual diario + semanal) — Fase 8
+// ===========================================================================
+
+enum TipoRevision {
+  diaria
+  semanal
+}
+
+model revisiones {
+  id             BigInt       @id @default(autoincrement())
+  tipo           TipoRevision
+  fecha          DateTime     @db.Date
+  notas          String?
+  ia_resumen_json Json?
+  creado_at      DateTime     @default(now()) @db.Timestamptz(6)
+
+  @@index([fecha])
+}
+
+// ===========================================================================
+//  SILVIA — coach personal con IA + memoria (Fase 8)
+// ===========================================================================
+
+model silvia_mensajes {
+  id        BigInt   @id @default(autoincrement())
+  rol       String // 'user' | 'assistant'
+  contenido String
+  creado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model silvia_memoria {
+  id        BigInt    @id @default(autoincrement())
+  tipo      String // 'evento' | 'aprendizaje' | 'nota'
+  contenido String
+  fecha     DateTime? @db.Date
+  creado_at DateTime  @default(now()) @db.Timestamptz(6)
+}

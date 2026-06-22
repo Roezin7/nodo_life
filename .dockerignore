@@ -1,0 +1,11 @@
+node_modules
+**/node_modules
+dist
+**/dist
+server/public
+client/dev-dist
+.git
+.env
+**/.env
+*.log
+.DS_Store
