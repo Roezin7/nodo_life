@@ -80,6 +80,8 @@ app.get(/^(?!\/api).*/, (_req, res) => {
 
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
-  console.log(`🌱 Nodo Vida API + PWA escuchando en http://localhost:${env.PORT}`);
+// Bind explícito a 0.0.0.0 para que el proxy (Traefik/Coolify) alcance el
+// contenedor por la red interna de Docker (evita "no available server").
+app.listen(env.PORT, '0.0.0.0', () => {
+  console.log(`🌱 Nodo Vida API + PWA escuchando en http://0.0.0.0:${env.PORT}`);
 });
