@@ -8,6 +8,11 @@ interface PesoData { serie: PesoPunto[]; ultimo: { fecha: string; peso: number }
 interface Tipo { id: number; nombre: string }
 interface Serie { id: number; ejercicio: string; series: number | null; reps: number | null; peso: number | null }
 interface Ent { id: number; fecha: string; tipo_id: number; tipo_nombre: string; duracion_min: number | null; notas: string | null; metricas: Record<string, number> | null; series: Serie[] }
+interface DiaCal { fecha: string; entrenado: boolean; tipos: string[] }
+interface Calendario { mes: string; dias: DiaCal[]; offset_inicial: number; total_entrenados: number }
+
+const DOW = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const hoyMes = () => new Date().toISOString().slice(0, 7);
 
 export default function Salud() {
   const [tab, setTab] = useState<'peso' | 'entrenamientos'>('peso');
@@ -49,16 +54,54 @@ function Peso() {
   );
 }
 
+function CalendarioEntrenos({ refresco }: { refresco: number }) {
+  const [mes, setMes] = useState(hoyMes());
+  const [cal, , cargando] = useCargar<Calendario>(() => api<Calendario>(`/salud/calendario?mes=${mes}`), [mes, refresco]);
+  const shift = (n: number) => {
+    const d = new Date(mes + '-01T00:00:00Z');
+    d.setUTCMonth(d.getUTCMonth() + n);
+    setMes(d.toISOString().slice(0, 7));
+  };
+  return (
+    <div className="card section-gap">
+      <div className="row" style={{ borderBottom: 'none', paddingBottom: '0.3rem', alignItems: 'center' }}>
+        <p className="card-title" style={{ margin: 0 }}>Mapa del mes</p>
+        <div className="btn-row" style={{ alignItems: 'center', marginLeft: 'auto' }}>
+          <button className="pill" onClick={() => shift(-1)}><Icono name="back" size={14} /></button>
+          <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>{mes}</strong>
+          <button className="pill" onClick={() => shift(1)}><Icono name="chevron" size={14} /></button>
+        </div>
+      </div>
+      {cargando || !cal ? <p className="muted">Cargando…</p> : (
+        <>
+          <div className="month-grid">
+            {DOW.map((d, i) => <span key={i} className="month-dow">{d}</span>)}
+            {Array.from({ length: cal.offset_inicial }).map((_, i) => <span key={`e${i}`} />)}
+            {cal.dias.map((dia) => (
+              <span key={dia.fecha} className={`habit-day ${dia.entrenado ? 'habit-day--on' : ''}`} title={`${dia.fecha}${dia.tipos.length ? ' · ' + dia.tipos.join(', ') : ''}`}>
+                {Number(dia.fecha.slice(8))}
+              </span>
+            ))}
+          </div>
+          <p className="row-sub" style={{ marginTop: '0.5rem' }}>{cal.total_entrenados} días entrenados este mes</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 function Entrenamientos() {
   const [tipos] = useCargar<Tipo[]>(() => api<Tipo[]>('/salud/tipos'));
   const [tipoSel, setTipoSel] = useState<number | null>(null);
   const tipoId = tipoSel ?? tipos?.[0]?.id ?? null;
   const [ents, recargar, cargando] = useCargar<Ent[]>(() => tipoId ? api<Ent[]>(`/salud/entrenamientos?tipo_id=${tipoId}`) : Promise.resolve([]), [tipoId]);
   const [nuevo, setNuevo] = useState(false);
+  const [refrescoCal, setRefrescoCal] = useState(0);
   const tipoNombre = tipos?.find((t) => t.id === tipoId)?.nombre ?? '';
 
   return (
     <>
+      <CalendarioEntrenos refresco={refrescoCal} />
       <div className="btn-row" style={{ justifyContent: 'space-between' }}>
         <Segmented value={String(tipoId ?? '')} onChange={(v) => setTipoSel(Number(v))} opciones={(tipos ?? []).map((t) => ({ v: String(t.id), label: t.nombre }))} />
         <button className="btn-primary" onClick={() => setNuevo(true)} disabled={!tipoId}><Icono name="plus" size={16} /> Registrar</button>
@@ -79,7 +122,7 @@ function Entrenamientos() {
           ))}
         </div>
       )}
-      {nuevo && tipoId && <NuevoEntrenamiento tipoId={tipoId} tipoNombre={tipoNombre} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargar(); }} />}
+      {nuevo && tipoId && <NuevoEntrenamiento tipoId={tipoId} tipoNombre={tipoNombre} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargar(); setRefrescoCal((n) => n + 1); }} />}
     </>
   );
 }
@@ -87,6 +130,7 @@ function Entrenamientos() {
 function NuevoEntrenamiento({ tipoId, tipoNombre, onClose, onSaved }: { tipoId: number; tipoNombre: string; onClose: () => void; onSaved: () => void }) {
   const esPesas = /pesas/i.test(tipoNombre);
   const esCorrer = /correr|run/i.test(tipoNombre);
+  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
   const [duracion, setDuracion] = useState('');
   const [notas, setNotas] = useState('');
   const [series, setSeries] = useState<{ ejercicio: string; series: string; reps: string; peso: string }[]>([{ ejercicio: '', series: '', reps: '', peso: '' }]);
@@ -98,7 +142,7 @@ function NuevoEntrenamiento({ tipoId, tipoNombre, onClose, onSaved }: { tipoId: 
   async function guardar() {
     setError('');
     try {
-      const body: Record<string, unknown> = { tipo_id: tipoId, duracion_min: duracion ? Number(duracion) : undefined, notas: notas || undefined };
+      const body: Record<string, unknown> = { tipo_id: tipoId, fecha: fecha || undefined, duracion_min: duracion ? Number(duracion) : undefined, notas: notas || undefined };
       if (esPesas) {
         body.series = series.filter((s) => s.ejercicio).map((s) => ({ ejercicio: s.ejercicio, series: s.series ? Number(s.series) : undefined, reps: s.reps ? Number(s.reps) : undefined, peso: s.peso ? Number(s.peso) : undefined }));
       } else {
@@ -113,6 +157,7 @@ function NuevoEntrenamiento({ tipoId, tipoNombre, onClose, onSaved }: { tipoId: 
 
   return (
     <Modal titulo={`Registrar ${tipoNombre}`} onClose={onClose}>
+      <Field label="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
       <Field label="Duración (min)"><input type="number" value={duracion} onChange={(e) => setDuracion(e.target.value)} /></Field>
       {esPesas ? (
         <>

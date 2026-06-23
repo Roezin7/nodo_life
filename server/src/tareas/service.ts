@@ -100,6 +100,49 @@ export async function listarTareas(vista: 'hoy' | 'inbox' | 'todas', filtros: { 
   return tareas.map(serializarTarea);
 }
 
+/**
+ * Tablero estilo Post-its: tareas generales (sin proyecto) repartidas en
+ * Hoy / Próximos / Algún día, y una columna por proyecto activo con sus tareas.
+ * Todo es interactivo: cada tarea se puede completar, editar o borrar.
+ */
+export async function tablero() {
+  const hoy = hoyMX();
+  const orden = [{ fecha_vence: { sort: 'asc' as const, nulls: 'last' as const } }, { prioridad: 'desc' as const }, { id: 'desc' as const }];
+  const [generales, proyectos] = await Promise.all([
+    prisma.tareas.findMany({ where: { estado: 'pendiente', proyecto_id: null }, orderBy: orden, take: 500 }),
+    prisma.proyectos.findMany({
+      where: { estado: { not: 'hecho' } },
+      orderBy: [{ orden: 'asc' }, { id: 'asc' }],
+      include: { area: true, tareas: { orderBy: orden } },
+    }),
+  ]);
+
+  const venceHoyOAntes = (t: { fecha_vence: Date | null }) => t.fecha_vence != null && iso(t.fecha_vence) <= hoy;
+  const venceDespues = (t: { fecha_vence: Date | null }) => t.fecha_vence != null && iso(t.fecha_vence) > hoy;
+
+  return {
+    hoy: generales.filter(venceHoyOAntes).map(serializarTarea),
+    proximos: generales.filter(venceDespues).map(serializarTarea),
+    algun_dia: generales.filter((t) => t.fecha_vence == null).map(serializarTarea),
+    proyectos: proyectos.map((p) => {
+      const total = p.tareas.length;
+      const hechas = p.tareas.filter((t) => t.estado === 'hecha').length;
+      return {
+        id: Number(p.id),
+        nombre: p.nombre,
+        area_id: Number(p.area_id),
+        area_nombre: p.area.nombre,
+        area_color: p.area.color,
+        estado: p.estado,
+        tareas_total: total,
+        tareas_hechas: hechas,
+        avance: avancePct(hechas, total),
+        tareas: p.tareas.filter((t) => t.estado === 'pendiente').map(serializarTarea),
+      };
+    }),
+  };
+}
+
 // ---------------------------------------------------------------------------
 //  Proyectos (avance derivado de % tareas hechas + bitácora)
 // ---------------------------------------------------------------------------

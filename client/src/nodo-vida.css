@@ -147,6 +147,32 @@
 }
 .habit-day--on { background: var(--success); border-color: var(--success); color: #fff; }
 
+/* --- Cuadrícula mensual (Salud / calendarios) --- */
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.3rem; justify-items: center; }
+.month-grid .habit-day { width: 100%; max-width: 34px; aspect-ratio: 1; height: auto; }
+.month-dow { font-size: 0.66rem; color: var(--ink-3); text-align: center; }
+
+/* --- Tablero de tareas (Post-its) --- */
+.board { display: flex; gap: 0.85rem; overflow-x: auto; padding-bottom: 0.75rem; align-items: flex-start; scroll-snap-type: x proximity; }
+.board-col {
+  flex: 0 0 240px; max-width: 240px; background: var(--surface-2); border-radius: var(--r-card);
+  padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; scroll-snap-align: start;
+}
+.board-col-head { display: flex; align-items: flex-start; gap: 0.4rem; }
+.board-col-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
+.board-count { font-size: 0.7rem; color: var(--ink-3); background: var(--surface); border-radius: var(--r-pill); padding: 0 0.4rem; }
+.board-col-sub { font-size: 0.7rem; color: var(--ink-3); margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.board-col-body { display: flex; flex-direction: column; gap: 0.45rem; min-height: 8px; }
+.board-empty { font-size: 0.78rem; color: var(--ink-3); text-align: center; padding: 0.6rem 0; }
+.board-card {
+  display: flex; align-items: center; gap: 0.45rem; background: var(--surface);
+  border-radius: var(--r-input); padding: 0.45rem 0.5rem; box-shadow: var(--sh-sm);
+}
+.board-card-title { flex: 1; min-width: 0; font-size: 0.82rem; cursor: pointer; word-break: break-word; }
+.board-card-fecha { font-size: 0.68rem; color: var(--ink-3); margin-left: 0.4rem; font-family: var(--font-mono); }
+.prio-alta { color: var(--danger); font-size: 0.6rem; margin-right: 0.3rem; vertical-align: middle; }
+.board-add { background: var(--surface); border: 1px dashed var(--border-strong); font-size: 0.8rem; padding: 0.45rem 0.55rem; border-radius: var(--r-input); }
+
 /* --- Check de tarea --- */
 .check {
   width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border-strong);

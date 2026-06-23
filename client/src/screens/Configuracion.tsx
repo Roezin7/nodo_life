@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { api, mxn } from '../api';
 import { useAuth } from '../auth';
-import { Page, useCargar, Field, Vacio } from '../ui';
+import { Page, useCargar, Field, Vacio, Modal } from '../ui';
 import { Icono } from '../icons';
 
 interface Area { id: number; nombre: string; color: string; icono: string; activo: boolean }
-interface Cuenta { id: number; nombre: string; tipo_id: number; saldo: number }
+interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; saldo_inicial: number; saldo: number }
 interface Ref { tipos_cuenta: { id: number; nombre: string }[]; cuentas: Cuenta[]; categorias: { id: number; nombre: string; clase: string; area_id: number | null }[] }
 interface Presupuesto { id: number; categoria_id: number | null; area_id: number | null; monto_limite: number }
 
@@ -87,12 +87,37 @@ function AreasCfg() {
   );
 }
 
+function EditarCuenta({ cuenta, tipos, onClose, onSaved }: { cuenta: Cuenta; tipos: { id: number; nombre: string }[]; onClose: () => void; onSaved: () => void }) {
+  const [nombre, setNombre] = useState(cuenta.nombre);
+  const [tipo, setTipo] = useState<number>(cuenta.tipo_id);
+  const [saldoInicial, setSaldoInicial] = useState(String(cuenta.saldo_inicial));
+  const [error, setError] = useState('');
+  async function guardar() {
+    setError('');
+    try {
+      await api(`/finanzas/cuentas/${cuenta.id}`, { method: 'PATCH', body: { nombre, tipo_id: tipo, saldo_inicial: Number(saldoInicial) || 0 } });
+      onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  }
+  return (
+    <Modal titulo="Editar cuenta" onClose={onClose}>
+      <Field label="Nombre"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
+      <Field label="Tipo"><select value={tipo} onChange={(e) => setTipo(Number(e.target.value))}>{tipos.map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select></Field>
+      <Field label="Saldo inicial"><input type="number" inputMode="decimal" value={saldoInicial} onChange={(e) => setSaldoInicial(e.target.value)} /></Field>
+      <p className="row-sub">Saldo actual (inicial + movimientos): <strong>{mxn(cuenta.saldo)}</strong></p>
+      {error && <p className="error-msg">{error}</p>}
+      <button className="btn-primary" onClick={guardar} disabled={!nombre}>Guardar</button>
+    </Modal>
+  );
+}
+
 function CuentasCfg() {
   const [ref, recargar] = useCargar<Ref>(() => api<Ref>('/finanzas/referencias'));
   const [nombre, setNombre] = useState('');
   const [tipo, setTipo] = useState<number | ''>('');
   const [saldo, setSaldo] = useState('');
   const [tipoNuevo, setTipoNuevo] = useState('');
+  const [editar, setEditar] = useState<Cuenta | null>(null);
   async function crearCuenta() {
     await api('/finanzas/cuentas', { method: 'POST', body: { nombre, tipo_id: tipo || ref?.tipos_cuenta[0]?.id, saldo_inicial: Number(saldo) || 0 } });
     setNombre(''); setSaldo(''); recargar();
@@ -101,8 +126,13 @@ function CuentasCfg() {
   return (
     <Seccion titulo="Cuentas">
       {(ref?.cuentas ?? []).map((c) => (
-        <div key={c.id} className="row"><span className="row-title">{c.nombre}</span><span className="row-amount">{mxn(c.saldo)}</span></div>
+        <div key={c.id} className="row">
+          <span className="row-title">{c.nombre}</span>
+          <span className="row-amount">{mxn(c.saldo)}</span>
+          <button className="icon-btn" onClick={() => setEditar(c)} aria-label="Editar cuenta"><Icono name="edit" size={15} /></button>
+        </div>
       ))}
+      {editar && ref && <EditarCuenta cuenta={editar} tipos={ref.tipos_cuenta} onClose={() => setEditar(null)} onSaved={() => { setEditar(null); recargar(); }} />}
       <div className="btn-row" style={{ marginTop: '0.6rem', alignItems: 'flex-end' }}>
         <Field label="Cuenta nueva"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
         <Field label="Tipo"><select value={tipo} onChange={(e) => setTipo(Number(e.target.value))}>{(ref?.tipos_cuenta ?? []).map((t) => <option key={t.id} value={t.id}>{t.nombre}</option>)}</select></Field>

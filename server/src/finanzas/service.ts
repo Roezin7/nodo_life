@@ -2,7 +2,7 @@ import type { TipoMovimiento } from '@prisma/client';
 import { prisma } from '../db.js';
 import { num0 } from '../lib/num.js';
 import { HttpError } from '../middleware/error.js';
-import { fechaDate, iso, hoyMX } from '../lib/fecha.js';
+import { fechaDate, iso, hoyMX, lunesDe } from '../lib/fecha.js';
 import {
   redondear,
   saldosPorCuenta,
@@ -30,6 +30,7 @@ export async function referencias() {
       tipo_id: Number(c.tipo_id),
       moneda: c.moneda,
       es_central: c.es_central,
+      saldo_inicial: num0(c.saldo_inicial),
       saldo: saldoPorId.get(Number(c.id)) ?? num0(c.saldo_inicial),
     })),
     categorias: categorias.map((c) => ({
@@ -88,6 +89,27 @@ export async function totalesCobrarDeudas() {
 }
 
 // ---------------------------------------------------------------------------
+//  Rango de un periodo (mes o semana) → fechas [desde, hasta)
+// ---------------------------------------------------------------------------
+export type Periodo = 'mes' | 'semana';
+
+export function rangoPeriodo(periodo: Periodo, ref?: string): { desde: Date; hasta: Date; etiqueta: string; ref: string } {
+  if (periodo === 'semana') {
+    const dia = ref && /^\d{4}-\d{2}-\d{2}$/.test(ref) ? ref : hoyMX();
+    const inicio = lunesDe(dia);
+    const desde = fechaDate(inicio);
+    const hasta = new Date(desde);
+    hasta.setUTCDate(hasta.getUTCDate() + 7);
+    return { desde, hasta, etiqueta: `Semana del ${inicio}`, ref: inicio };
+  }
+  const mes = ref && /^\d{4}-\d{2}$/.test(ref) ? ref : hoyMX().slice(0, 7);
+  const desde = fechaDate(mes + '-01');
+  const hasta = new Date(desde);
+  hasta.setUTCMonth(hasta.getUTCMonth() + 1);
+  return { desde, hasta, etiqueta: mes, ref: mes };
+}
+
+// ---------------------------------------------------------------------------
 //  Movimientos
 // ---------------------------------------------------------------------------
 export interface MovimientoInput {
@@ -131,11 +153,10 @@ export async function crearMovimiento(m: MovimientoInput) {
   return { id: Number(creado.id) };
 }
 
-/** Lista movimientos de un mes (YYYY-MM) con filtros opcionales por área/categoría. */
-export async function listarMovimientos(mes: string, filtros: { area_id?: number; categoria_id?: number } = {}) {
-  const desde = fechaDate(mes + '-01');
-  const hasta = new Date(desde);
-  hasta.setUTCMonth(hasta.getUTCMonth() + 1);
+/** Lista movimientos de un periodo (mes o semana) con filtros opcionales por área/categoría. */
+export async function listarMovimientos(opts: { periodo?: Periodo; ref?: string; area_id?: number; categoria_id?: number } = {}) {
+  const { desde, hasta } = rangoPeriodo(opts.periodo ?? 'mes', opts.ref);
+  const filtros = opts;
   const movs = await prisma.movimientos.findMany({
     where: {
       fecha: { gte: desde, lt: hasta },
@@ -167,11 +188,10 @@ export async function borrarMovimiento(id: bigint) {
 // ---------------------------------------------------------------------------
 //  Dashboard de Dinero (KPIs del mes)
 // ---------------------------------------------------------------------------
-export async function dashboard(mes?: string) {
-  const mesActual = mes ?? hoyMX().slice(0, 7);
-  const desde = fechaDate(mesActual + '-01');
-  const hasta = new Date(desde);
-  hasta.setUTCMonth(hasta.getUTCMonth() + 1);
+export async function dashboard(opts: { periodo?: Periodo; ref?: string } = {}) {
+  const periodo = opts.periodo ?? 'mes';
+  const rango = rangoPeriodo(periodo, opts.ref);
+  const { desde, hasta } = rango;
 
   const [movs, presupuestos, categorias, areas, saldos, cobrarDeudas] = await Promise.all([
     prisma.movimientos.findMany({ where: { fecha: { gte: desde, lt: hasta } } }),
@@ -197,8 +217,8 @@ export async function dashboard(mes?: string) {
 
   const catNombre = new Map(categorias.map((c) => [Number(c.id), c.nombre]));
 
-  // Presupuestos vs gasto del mes.
-  const presupuestoEstado = presupuestos.map((p) => {
+  // Presupuestos vs gasto del mes (los límites son mensuales; solo en vista de mes).
+  const presupuestoEstado = periodo === 'semana' ? [] : presupuestos.map((p) => {
     const gastado = p.categoria_id
       ? gastoPorCategoria.get(Number(p.categoria_id)) ?? 0
       : p.area_id
@@ -216,7 +236,10 @@ export async function dashboard(mes?: string) {
   const total_liquido = redondear(saldos.reduce((a, s) => a + s.saldo, 0));
 
   return {
-    mes: mesActual,
+    periodo,
+    ref: rango.ref,
+    etiqueta: rango.etiqueta,
+    mes: rango.ref,
     resumen: mes_resumen,
     saldos,
     total_liquido,

@@ -29,6 +29,31 @@ async function fetchPrecioFinnhub(ticker: string): Promise<number | null> {
   }
 }
 
+/**
+ * Verifica que un ticker exista y sea cotizable por el proveedor (Finnhub free:
+ * acciones y ETFs de EE.UU.). Devuelve el precio y el nombre si lo encuentra.
+ * Nota: los fondos mutuos (p.ej. SWPPX) NO cotizan en el free tier de Finnhub,
+ * así que devolverán `no_cotiza` aunque el símbolo exista.
+ */
+export async function verificarTicker(ticker: string): Promise<{ found: boolean; precio: number | null; nombre: string | null; motivo?: string }> {
+  if (!env.FINNHUB_API_KEY) return { found: false, precio: null, nombre: null, motivo: 'sin_api_key' };
+  const t = ticker.trim().toUpperCase();
+  const precio = await fetchPrecioFinnhub(t);
+  if (precio == null) return { found: false, precio: null, nombre: null, motivo: 'no_cotiza' };
+  // Nombre legible vía búsqueda de símbolos (best-effort).
+  let nombre: string | null = null;
+  try {
+    const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(t)}&token=${env.FINNHUB_API_KEY}`, { signal: AbortSignal.timeout(8000) });
+    if (r.ok) {
+      const j = (await r.json()) as { result?: { symbol?: string; description?: string }[] };
+      nombre = j.result?.find((x) => x.symbol?.toUpperCase() === t)?.description ?? null;
+    }
+  } catch {
+    // ignoramos: el nombre es opcional
+  }
+  return { found: true, precio, nombre };
+}
+
 /** FX USD->MXN gratis y sin key. */
 async function fetchFxUsdMxn(): Promise<number | null> {
   try {

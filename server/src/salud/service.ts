@@ -131,6 +131,39 @@ export async function listarEntrenamientos(tipoId?: number) {
   }));
 }
 
+/**
+ * Calendario mensual de entrenamientos: para cada día del mes (YYYY-MM) indica
+ * si hubo entrenamiento y de qué tipos, para pintar un mapa cuadriculado.
+ */
+export async function calendarioEntrenamientos(mes: string) {
+  const desde = fechaDate(mes + '-01');
+  const hasta = new Date(desde);
+  hasta.setUTCMonth(hasta.getUTCMonth() + 1);
+  const ents = await prisma.entrenamientos.findMany({
+    where: { fecha: { gte: desde, lt: hasta } },
+    orderBy: { fecha: 'asc' },
+    include: { tipo: true },
+  });
+
+  // Mapa fecha -> tipos entrenados ese día.
+  const porDia = new Map<string, Set<string>>();
+  for (const e of ents) {
+    const f = iso(e.fecha);
+    (porDia.get(f) ?? porDia.set(f, new Set()).get(f)!).add(e.tipo.nombre);
+  }
+
+  const diasMes = new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth() + 1, 0)).getUTCDate();
+  const dias: { fecha: string; entrenado: boolean; tipos: string[] }[] = [];
+  for (let i = 1; i <= diasMes; i++) {
+    const f = iso(new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth(), i)));
+    const tipos = porDia.get(f);
+    dias.push({ fecha: f, entrenado: !!tipos, tipos: tipos ? [...tipos] : [] });
+  }
+  // Día de la semana del 1° (0=lunes … 6=domingo) para alinear la cuadrícula.
+  const dow = (desde.getUTCDay() + 6) % 7;
+  return { mes, dias, offset_inicial: dow, total_entrenados: porDia.size };
+}
+
 export async function borrarEntrenamiento(id: bigint) {
   const existe = await prisma.entrenamientos.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Entrenamiento no encontrado');

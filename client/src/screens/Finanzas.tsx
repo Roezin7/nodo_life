@@ -19,14 +19,31 @@ interface Dash {
 }
 
 const hoyMes = () => new Date().toISOString().slice(0, 7);
+const hoyDia = () => new Date().toISOString().slice(0, 10);
 type Tab = 'resumen' | 'movimientos' | 'cobrar' | 'deudas';
+type Periodo = 'mes' | 'semana';
+
+/** Lunes (YYYY-MM-DD) de la semana del día dado. */
+function lunesISO(dia: string): string {
+  const dt = new Date(dia + 'T00:00:00Z');
+  const dow = dt.getUTCDay();
+  dt.setUTCDate(dt.getUTCDate() + ((dow === 0 ? -6 : 1) - dow));
+  return dt.toISOString().slice(0, 10);
+}
+
+interface NavProps { periodo: Periodo; cursor: string; setCursor: (c: string) => void; setPeriodo: (p: Periodo) => void }
 
 export default function Finanzas() {
   const [tab, setTab] = useState<Tab>('resumen');
-  const [mes, setMes] = useState(hoyMes());
+  const [periodo, setPeriodoState] = useState<Periodo>('mes');
+  const [cursor, setCursor] = useState(hoyMes());
   const [ref, recargarRef] = useCargar<Ref>(() => api<Ref>('/finanzas/referencias'));
   const [areas] = useCargar<Area[]>(() => api<Area[]>('/areas'));
   const [nuevo, setNuevo] = useState(false);
+
+  // Al cambiar de periodo reposicionamos el cursor (mes actual / semana actual).
+  const setPeriodo = (p: Periodo) => { setPeriodoState(p); setCursor(p === 'mes' ? hoyMes() : hoyDia()); };
+  const nav: NavProps = { periodo, cursor, setCursor, setPeriodo };
 
   return (
     <Page titulo="Dinero" icono="wallet" accion={<button className="btn-primary" onClick={() => setNuevo(true)}><Icono name="plus" size={16} /> Movimiento</button>}>
@@ -37,8 +54,8 @@ export default function Finanzas() {
         { v: 'deudas', label: 'Deudas' },
       ]} />
       <div className="section-gap">
-        {tab === 'resumen' && <Resumen mes={mes} setMes={setMes} />}
-        {tab === 'movimientos' && ref && <Movimientos mes={mes} setMes={setMes} ref_={ref} areas={areas ?? []} />}
+        {tab === 'resumen' && <Resumen nav={nav} />}
+        {tab === 'movimientos' && ref && <Movimientos nav={nav} ref_={ref} areas={areas ?? []} />}
         {tab === 'cobrar' && <CobrarDeudas modo="cobrar" />}
         {tab === 'deudas' && <CobrarDeudas modo="deudas" />}
       </div>
@@ -47,27 +64,44 @@ export default function Finanzas() {
   );
 }
 
-function MesNav({ mes, setMes }: { mes: string; setMes: (m: string) => void }) {
+function PeriodoNav({ periodo, cursor, setCursor, setPeriodo }: NavProps) {
   const shift = (n: number) => {
-    const d = new Date(mes + '-01T00:00:00Z');
-    d.setUTCMonth(d.getUTCMonth() + n);
-    setMes(d.toISOString().slice(0, 7));
+    if (periodo === 'mes') {
+      const d = new Date(cursor + '-01T00:00:00Z');
+      d.setUTCMonth(d.getUTCMonth() + n);
+      setCursor(d.toISOString().slice(0, 7));
+    } else {
+      const d = new Date(cursor + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + n * 7);
+      setCursor(d.toISOString().slice(0, 10));
+    }
   };
+  const etiqueta = periodo === 'mes' ? cursor : `Semana del ${lunesISO(cursor)}`;
   return (
-    <div className="btn-row" style={{ alignItems: 'center', marginBottom: '0.75rem' }}>
-      <button className="pill" onClick={() => shift(-1)}><Icono name="back" size={14} /></button>
-      <strong style={{ fontFamily: 'var(--font-mono)' }}>{mes}</strong>
-      <button className="pill" onClick={() => shift(1)}><Icono name="chevron" size={14} /></button>
+    <div style={{ marginBottom: '0.75rem' }}>
+      <Segmented value={periodo} onChange={setPeriodo} opciones={[{ v: 'mes', label: 'Mes' }, { v: 'semana', label: 'Semana' }]} />
+      <div className="btn-row" style={{ alignItems: 'center', marginTop: '0.5rem' }}>
+        <button className="pill" onClick={() => shift(-1)}><Icono name="back" size={14} /></button>
+        <strong style={{ fontFamily: 'var(--font-mono)' }}>{etiqueta}</strong>
+        <button className="pill" onClick={() => shift(1)}><Icono name="chevron" size={14} /></button>
+      </div>
     </div>
   );
 }
 
-function Resumen({ mes, setMes }: { mes: string; setMes: (m: string) => void }) {
-  const [d, , cargando] = useCargar<Dash>(() => api<Dash>(`/finanzas/dashboard?mes=${mes}`), [mes]);
-  if (cargando || !d) return <p className="muted">Cargando…</p>;
+function Resumen({ nav }: { nav: NavProps }) {
+  const [d, , cargando] = useCargar<Dash>(() => api<Dash>(`/finanzas/dashboard?periodo=${nav.periodo}&ref=${nav.cursor}`), [nav.periodo, nav.cursor]);
   return (
     <>
-      <MesNav mes={mes} setMes={setMes} />
+      <PeriodoNav {...nav} />
+      {cargando || !d ? <p className="muted">Cargando…</p> : <ResumenBody d={d} />}
+    </>
+  );
+}
+
+function ResumenBody({ d }: { d: Dash }) {
+  return (
+    <>
       <div className="stat-grid">
         <Stat label="Ingresos" valor={mxn(d.resumen.ingresos)} color="var(--success)" />
         <Stat label="Gastos" valor={mxn(d.resumen.gastos)} color="var(--danger)" />
@@ -110,8 +144,8 @@ function Resumen({ mes, setMes }: { mes: string; setMes: (m: string) => void }) 
   );
 }
 
-function Movimientos({ mes, setMes, ref_, areas }: { mes: string; setMes: (m: string) => void; ref_: Ref; areas: Area[] }) {
-  const [movs, recargar, cargando] = useCargar<Mov[]>(() => api<Mov[]>(`/finanzas/movimientos?mes=${mes}`), [mes]);
+function Movimientos({ nav, ref_, areas }: { nav: NavProps; ref_: Ref; areas: Area[] }) {
+  const [movs, recargar, cargando] = useCargar<Mov[]>(() => api<Mov[]>(`/finanzas/movimientos?periodo=${nav.periodo}&ref=${nav.cursor}`), [nav.periodo, nav.cursor]);
   const cuentaNombre = (id: number | null) => ref_.cuentas.find((c) => c.id === id)?.nombre ?? '';
   const catNombre = (id: number | null) => ref_.categorias.find((c) => c.id === id)?.nombre ?? '';
   const areaColor = (id: number | null) => areas.find((a) => a.id === id)?.color;
@@ -124,8 +158,8 @@ function Movimientos({ mes, setMes, ref_, areas }: { mes: string; setMes: (m: st
 
   return (
     <>
-      <MesNav mes={mes} setMes={setMes} />
-      {cargando || !movs ? <p className="muted">Cargando…</p> : movs.length === 0 ? <Vacio texto="Sin movimientos este mes." /> : (
+      <PeriodoNav {...nav} />
+      {cargando || !movs ? <p className="muted">Cargando…</p> : movs.length === 0 ? <Vacio texto="Sin movimientos en este periodo." /> : (
         <div className="card">
           {movs.map((m) => {
             const signo = m.tipo === 'ingreso' ? '+' : m.tipo === 'gasto' ? '−' : '';

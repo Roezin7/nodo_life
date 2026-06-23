@@ -52,20 +52,39 @@ export default function Inversiones() {
   );
 }
 
+interface Verif { found: boolean; precio: number | null; nombre: string | null; motivo?: string }
+
 function NuevaPosicion({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [ticker, setTicker] = useState('');
   const [nombre, setNombre] = useState('');
   const [clase, setClase] = useState<'stock' | 'etf' | 'crypto'>('etf');
   const [cantidad, setCantidad] = useState('');
-  const [precio, setPrecio] = useState('');
+  const [costoTotal, setCostoTotal] = useState('');
   const [moneda, setMoneda] = useState('USD');
   const [error, setError] = useState('');
+  const [verif, setVerif] = useState<Verif | null>(null);
+  const [verificando, setVerificando] = useState(false);
+
+  const cant = Number(cantidad);
+  const costo = Number(costoTotal);
+  const promedio = cant > 0 && costo > 0 ? costo / cant : null;
+
+  async function verificar() {
+    if (!ticker.trim()) return;
+    setVerificando(true); setVerif(null);
+    try {
+      const r = await api<Verif>(`/inversiones/verificar?ticker=${encodeURIComponent(ticker.trim())}`);
+      setVerif(r);
+      if (r.found && r.nombre && !nombre) setNombre(r.nombre);
+    } catch { setVerif(null); }
+    finally { setVerificando(false); }
+  }
 
   async function guardar() {
     setError('');
     try {
       await api('/inversiones/posiciones', { method: 'POST', body: {
-        ticker, nombre: nombre || undefined, clase, cantidad: Number(cantidad), precio_compra_prom: Number(precio), moneda,
+        ticker, nombre: nombre || undefined, clase, cantidad: cant, costo_total: costo, moneda,
       } });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
@@ -73,14 +92,29 @@ function NuevaPosicion({ onClose, onSaved }: { onClose: () => void; onSaved: () 
 
   return (
     <Modal titulo="Nueva posición" onClose={onClose}>
-      <Field label="Ticker"><input value={ticker} onChange={(e) => setTicker(e.target.value.toUpperCase())} placeholder="QQQM, SCHX…" /></Field>
+      <Field label="Ticker">
+        <div className="btn-row" style={{ alignItems: 'stretch', flexWrap: 'nowrap' }}>
+          <input value={ticker} onChange={(e) => { setTicker(e.target.value.toUpperCase()); setVerif(null); }} onBlur={verificar} placeholder="QQQM, SCHX…" style={{ flex: 1 }} />
+          <button type="button" className="btn-ghost" onClick={verificar} disabled={!ticker.trim() || verificando}>{verificando ? '…' : 'Verificar'}</button>
+        </div>
+      </Field>
+      {verif && (
+        verif.found
+          ? <p className="row-sub" style={{ color: 'var(--success)' }}>✓ Encontrado{verif.nombre ? `: ${verif.nombre}` : ''}{verif.precio != null ? ` · ahora ${verif.precio} ${moneda}` : ''}</p>
+          : <p className="row-sub" style={{ color: 'var(--warning)' }}>
+              {verif.motivo === 'sin_api_key'
+                ? '⚠ Precios no configurados (sin FINNHUB_API_KEY). Puedes guardarla igual con tu costo.'
+                : '⚠ No cotiza en el proveedor (Finnhub free cubre acciones y ETFs de EE.UU., no fondos mutuos como SWPPX). Puedes guardarla igual; no se valuará a mercado.'}
+            </p>
+      )}
       <Field label="Nombre (opcional)"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
       <Field label="Clase"><select value={clase} onChange={(e) => setClase(e.target.value as 'stock' | 'etf' | 'crypto')}><option value="etf">ETF</option><option value="stock">Acción</option><option value="crypto">Crypto</option></select></Field>
-      <Field label="Cantidad"><input type="number" inputMode="decimal" value={cantidad} onChange={(e) => setCantidad(e.target.value)} /></Field>
-      <Field label="Precio compra prom."><input type="number" inputMode="decimal" value={precio} onChange={(e) => setPrecio(e.target.value)} /></Field>
+      <Field label="Total de acciones / unidades"><input type="number" inputMode="decimal" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="p.ej. 10" /></Field>
+      <Field label="Costo total invertido"><input type="number" inputMode="decimal" value={costoTotal} onChange={(e) => setCostoTotal(e.target.value)} placeholder="lo que pagaste en total" /></Field>
+      {promedio != null && <p className="row-sub">Costo promedio por unidad: <strong>{promedio.toFixed(4)} {moneda}</strong></p>}
       <Field label="Moneda"><select value={moneda} onChange={(e) => setMoneda(e.target.value)}><option value="USD">USD</option><option value="MXN">MXN</option></select></Field>
       {error && <p className="error-msg">{error}</p>}
-      <button className="btn-primary" onClick={guardar} disabled={!ticker || !cantidad || !precio}>Guardar</button>
+      <button className="btn-primary" onClick={guardar} disabled={!ticker || !cantidad || !costoTotal}>Guardar</button>
     </Modal>
   );
 }

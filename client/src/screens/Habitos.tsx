@@ -18,10 +18,17 @@ export default function Habitos() {
   const [t, recargar, cargando] = useCargar<Tracker>(() => api<Tracker>('/habitos'));
   const [areas] = useCargar<Area[]>(() => api<Area[]>('/areas'));
   const [nuevo, setNuevo] = useState(false);
+  const [editar, setEditar] = useState<Habito | null>(null);
 
   async function toggle(h: Habito, dia: DiaCheck) {
     if (dia.hecho) await api(`/habitos/${h.id}/registro?fecha=${dia.fecha}`, { method: 'DELETE' });
     else await api(`/habitos/${h.id}/registro`, { method: 'POST', body: { fecha: dia.fecha, completado: true } });
+    recargar();
+  }
+
+  async function borrar(h: Habito) {
+    if (!confirm(`¿Eliminar el hábito "${h.nombre}"? Se borrará también su historial.`)) return;
+    await api(`/habitos/${h.id}`, { method: 'DELETE' });
     recargar();
   }
 
@@ -45,35 +52,40 @@ export default function Habitos() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.35rem', gap: '0.75rem' }}>
                 <span className="row-sub">🔥 {h.racha} · máx {h.racha_max} · {h.dias_semana}/{h.meta_semanal} sem</span>
-                <div style={{ flex: 1, maxWidth: 160 }}><Progress value={h.cumplimiento_semanal} color={h.area_color} /></div>
+                <div style={{ flex: 1, maxWidth: 120 }}><Progress value={h.cumplimiento_semanal} color={h.area_color} /></div>
                 <span className="row-sub">{pct(h.cumplimiento_semanal)}</span>
+                <button className="icon-btn" onClick={() => setEditar(h)} aria-label="Editar"><Icono name="edit" size={15} /></button>
+                <button className="icon-btn" onClick={() => borrar(h)} aria-label="Eliminar"><Icono name="trash" size={15} /></button>
               </div>
             </div>
           ))}
         </div>
       )}
-      {nuevo && <NuevoHabito areas={areas ?? []} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargar(); }} />}
+      {nuevo && <HabitoForm areas={areas ?? []} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargar(); }} />}
+      {editar && <HabitoForm areas={areas ?? []} habito={editar} onClose={() => setEditar(null)} onSaved={() => { setEditar(null); recargar(); }} />}
     </Page>
   );
 }
 
-function NuevoHabito({ areas, onClose, onSaved }: { areas: Area[]; onClose: () => void; onSaved: () => void }) {
-  const [nombre, setNombre] = useState('');
-  const [area, setArea] = useState<number | ''>(areas[0]?.id ?? '');
-  const [frecuencia, setFrecuencia] = useState<'diaria' | 'semanal_x_veces'>('diaria');
-  const [meta, setMeta] = useState('');
+function HabitoForm({ areas, habito, onClose, onSaved }: { areas: Area[]; habito?: Habito; onClose: () => void; onSaved: () => void }) {
+  const [nombre, setNombre] = useState(habito?.nombre ?? '');
+  const [area, setArea] = useState<number | ''>(habito?.area_id ?? areas[0]?.id ?? '');
+  const [frecuencia, setFrecuencia] = useState<'diaria' | 'semanal_x_veces'>((habito?.frecuencia as 'diaria' | 'semanal_x_veces') ?? 'diaria');
+  const [meta, setMeta] = useState(habito?.meta != null ? String(habito.meta) : '');
   const [error, setError] = useState('');
 
   async function guardar() {
     setError('');
     try {
-      await api('/habitos', { method: 'POST', body: { nombre, area_id: area, frecuencia, meta: frecuencia === 'semanal_x_veces' && meta ? Number(meta) : null } });
+      const body = { nombre, area_id: area, frecuencia, meta: frecuencia === 'semanal_x_veces' && meta ? Number(meta) : null };
+      if (habito) await api(`/habitos/${habito.id}`, { method: 'PATCH', body });
+      else await api('/habitos', { method: 'POST', body });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }
 
   return (
-    <Modal titulo="Nuevo hábito" onClose={onClose}>
+    <Modal titulo={habito ? 'Editar hábito' : 'Nuevo hábito'} onClose={onClose}>
       <Field label="Nombre"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Leer, meditar, gym…" /></Field>
       <Field label="Área"><select value={area} onChange={(e) => setArea(Number(e.target.value))}>{areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></Field>
       <Field label="Frecuencia"><select value={frecuencia} onChange={(e) => setFrecuencia(e.target.value as 'diaria' | 'semanal_x_veces')}><option value="diaria">Diaria</option><option value="semanal_x_veces">X veces por semana</option></select></Field>

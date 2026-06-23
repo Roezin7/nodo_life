@@ -81,6 +81,12 @@ saludRouter.delete('/entrenamientos/:id', asyncHandler(async (req, res) => {
   res.status(204).end();
 }));
 
+// --- Calendario mensual (mapa cuadriculado de días entrenados) ---
+saludRouter.get('/calendario', asyncHandler(async (req, res) => {
+  const mes = z.string().regex(/^\d{4}-\d{2}$/).default(new Date().toISOString().slice(0, 7)).parse(req.query.mes);
+  res.json(await svc.calendarioEntrenamientos(mes));
+}));
+
 saludRouter.get('/progresion/:tipoId', asyncHandler(async (req, res) => {
   res.json(await svc.progresion(id.parse(req.params.tipoId)));
 }));

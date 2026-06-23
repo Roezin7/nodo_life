@@ -9,6 +9,9 @@ finanzasRouter.use(requireAuth);
 
 const id = z.coerce.number().int().positive();
 const mesRe = z.string().regex(/^\d{4}-\d{2}$/);
+const periodo = z.enum(['mes', 'semana']).optional();
+// ref: YYYY-MM (mes) o YYYY-MM-DD (semana).
+const ref = z.string().regex(/^\d{4}-\d{2}(-\d{2})?$/).optional();
 
 // --- Referencias / dashboard ---
 finanzasRouter.get('/referencias', asyncHandler(async (_req, res) => {
@@ -16,8 +19,8 @@ finanzasRouter.get('/referencias', asyncHandler(async (_req, res) => {
 }));
 
 finanzasRouter.get('/dashboard', asyncHandler(async (req, res) => {
-  const mes = mesRe.optional().parse(req.query.mes);
-  res.json(await svc.dashboard(mes));
+  const q = z.object({ periodo, ref, mes: mesRe.optional() }).parse(req.query);
+  res.json(await svc.dashboard({ periodo: q.periodo, ref: q.ref ?? q.mes }));
 }));
 
 finanzasRouter.get('/saldos', asyncHandler(async (_req, res) => {
@@ -27,11 +30,13 @@ finanzasRouter.get('/saldos', asyncHandler(async (_req, res) => {
 // --- Movimientos ---
 finanzasRouter.get('/movimientos', asyncHandler(async (req, res) => {
   const q = z.object({
-    mes: mesRe,
+    periodo,
+    ref,
+    mes: mesRe.optional(),
     area_id: id.optional(),
     categoria_id: id.optional(),
   }).parse(req.query);
-  res.json(await svc.listarMovimientos(q.mes, { area_id: q.area_id, categoria_id: q.categoria_id }));
+  res.json(await svc.listarMovimientos({ periodo: q.periodo, ref: q.ref ?? q.mes, area_id: q.area_id, categoria_id: q.categoria_id }));
 }));
 
 finanzasRouter.post('/movimientos', asyncHandler(async (req, res) => {

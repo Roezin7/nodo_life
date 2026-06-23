@@ -11,6 +11,11 @@ const id = z.coerce.number().int().positive();
 const prioridad = z.enum(['baja', 'media', 'alta']);
 const fechaOrNull = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable();
 
+// --- Tablero (vista principal: Hoy / Próximos / Algún día / por Proyecto) ---
+tareasRouter.get('/tablero', asyncHandler(async (_req, res) => {
+  res.json(await svc.tablero());
+}));
+
 // --- Tareas ---
 tareasRouter.get('/', asyncHandler(async (req, res) => {
   const q = z.object({
