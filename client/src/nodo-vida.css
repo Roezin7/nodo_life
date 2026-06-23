@@ -77,8 +77,12 @@
   color: var(--ink);
 }
 .pill--on { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
-.icon-btn { background: none; border: none; color: var(--ink-2); cursor: pointer; padding: 0.3rem; border-radius: 8px; display: inline-flex; }
-.icon-btn:hover { background: var(--surface-2); }
+.icon-btn {
+  background: none; border: none; color: var(--ink-2); cursor: pointer; border-radius: 9px;
+  display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none;
+}
+.icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+.icon-btn:active { transform: scale(0.94); }
 .danger-link { color: var(--danger); background: none; border: none; cursor: pointer; font-size: 0.8rem; }
 
 /* --- Cards / stats --- */
@@ -139,23 +143,41 @@
 .linechart { display: block; }
 
 /* --- Hábitos tracker --- */
-.habit-week { display: flex; gap: 0.3rem; }
 .habit-day {
-  width: 26px; height: 26px; border-radius: 8px; border: 1px solid var(--border-strong);
-  display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.7rem; color: var(--ink-3);
-  background: var(--surface);
+  border-radius: 8px; border: 1px solid var(--border-strong);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.78rem; color: var(--ink-3);
+  background: var(--surface); padding: 0;
 }
 .habit-day--on { background: var(--success); border-color: var(--success); color: #fff; }
 
+/* Cuadrícula semanal: 7 columnas a todo el ancho para que cabecera y filas alineen. */
+.habit-dow, .habit-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; }
+.habit-dow { margin-bottom: 0.55rem; }
+.habit-dow span { text-align: center; font-size: 0.66rem; color: var(--ink-3); }
+.habit-week .habit-day { width: 100%; max-width: 46px; aspect-ratio: 1; justify-self: center; }
+
+.habit-item { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+.habit-item:last-child { border-bottom: none; padding-bottom: 0; }
+.habit-item-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.habit-item-top .area-chip { min-width: 0; }
+.habit-item-top strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.habit-item-actions { display: flex; gap: 0.1rem; flex: none; }
+.habit-item-stats { display: flex; align-items: center; gap: 0.6rem; }
+.habit-racha { flex: none; white-space: nowrap; }
+.habit-progress { flex: 1; min-width: 40px; }
+
 /* --- Cuadrícula mensual (Salud / calendarios) --- */
-.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.3rem; justify-items: center; }
-.month-grid .habit-day { width: 100%; max-width: 34px; aspect-ratio: 1; height: auto; }
+.month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.35rem; justify-items: center; }
+.month-grid .habit-day { width: 100%; max-width: 40px; aspect-ratio: 1; }
 .month-dow { font-size: 0.66rem; color: var(--ink-3); text-align: center; }
 
 /* --- Tablero de tareas (Post-its) --- */
-.board { display: flex; gap: 0.85rem; overflow-x: auto; padding-bottom: 0.75rem; align-items: flex-start; scroll-snap-type: x proximity; }
+.board {
+  display: flex; gap: 0.85rem; overflow-x: auto; padding-bottom: 0.75rem; align-items: flex-start;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+}
 .board-col {
-  flex: 0 0 240px; max-width: 240px; background: var(--surface-2); border-radius: var(--r-card);
+  flex: 0 0 min(240px, 80vw); max-width: min(240px, 80vw); background: var(--surface-2); border-radius: var(--r-card);
   padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; scroll-snap-align: start;
 }
 .board-col-head { display: flex; align-items: flex-start; gap: 0.4rem; }
@@ -188,3 +210,23 @@
 .error-msg { color: var(--danger); font-size: 0.85rem; }
 .aviso { background: var(--info-bg); color: var(--info); padding: 0.6rem 0.85rem; border-radius: var(--r-input); font-size: 0.85rem; margin-bottom: 0.75rem; }
 .section-gap { margin-top: 1.4rem; }
+
+/* ---------- Responsive: teléfono (iPhone 17 Pro) ---------- */
+@media (max-width: 480px) {
+  /* Más aire táctil y que nada se desborde en columna estrecha. */
+  .check { width: 22px; height: 22px; }
+  .board-card { padding: 0.5rem 0.55rem; }
+  .habit-week .habit-day { max-width: 52px; }
+  /* El control segmentado puede crecer a todo el ancho para dedos. */
+  .segmented { display: flex; width: 100%; }
+  .seg { flex: 1; text-align: center; }
+  /* Acciones del header de página no se encogen. */
+  .page-head { align-items: center; }
+}
+
+/* ---------- Responsive: iPad Pro y pantallas grandes ---------- */
+@media (min-width: 1024px) {
+  /* Cuadrícula mensual con celdas cómodas y tablero con columnas más anchas. */
+  .month-grid .habit-day { max-width: 48px; }
+  .board-col { flex-basis: 260px; max-width: 260px; }
+}

@@ -36,26 +36,25 @@ export default function Habitos() {
     <Page titulo="Hábitos" icono="repeat" accion={<button className="btn-primary" onClick={() => setNuevo(true)}><Icono name="plus" size={16} /> Hábito</button>}>
       {cargando || !t ? <p className="muted">Cargando…</p> : t.habitos.length === 0 ? <Vacio texto="Sin hábitos. Crea el primero." /> : (
         <div className="card">
-          <div className="row" style={{ color: 'var(--ink-3)', fontSize: '0.72rem' }}>
-            <span>Hábito</span>
-            <div className="habit-week">{t.dias.map((_, i) => <span key={i} className="habit-day" style={{ border: 'none', background: 'none' }}>{DOW[i]}</span>)}</div>
-          </div>
+          <div className="habit-dow">{t.dias.map((_, i) => <span key={i}>{DOW[i]}</span>)}</div>
           {t.habitos.map((h) => (
-            <div key={h.id} style={{ padding: '0.6rem 0', borderBottom: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={h.id} className="habit-item">
+              <div className="habit-item-top">
                 <div className="area-chip"><span className="area-dot" style={{ background: h.area_color }} /> <strong>{h.nombre}</strong></div>
-                <div className="habit-week">
-                  {h.semana.map((dia) => (
-                    <button key={dia.fecha} className={`habit-day ${dia.hecho ? 'habit-day--on' : ''}`} onClick={() => toggle(h, dia)} title={dia.fecha}>{dia.hecho ? '✓' : ''}</button>
-                  ))}
+                <div className="habit-item-actions">
+                  <button className="icon-btn" onClick={() => setEditar(h)} aria-label="Editar hábito"><Icono name="edit" size={16} /></button>
+                  <button className="icon-btn" onClick={() => borrar(h)} aria-label="Eliminar hábito"><Icono name="trash" size={16} /></button>
                 </div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.35rem', gap: '0.75rem' }}>
-                <span className="row-sub">🔥 {h.racha} · máx {h.racha_max} · {h.dias_semana}/{h.meta_semanal} sem</span>
-                <div style={{ flex: 1, maxWidth: 120 }}><Progress value={h.cumplimiento_semanal} color={h.area_color} /></div>
+              <div className="habit-week">
+                {h.semana.map((dia) => (
+                  <button key={dia.fecha} className={`habit-day ${dia.hecho ? 'habit-day--on' : ''}`} onClick={() => toggle(h, dia)} title={dia.fecha}>{dia.hecho ? '✓' : ''}</button>
+                ))}
+              </div>
+              <div className="habit-item-stats">
+                <span className="row-sub habit-racha">🔥 {h.racha} · máx {h.racha_max} · {h.dias_semana}/{h.meta_semanal}</span>
+                <div className="habit-progress"><Progress value={h.cumplimiento_semanal} color={h.area_color} /></div>
                 <span className="row-sub">{pct(h.cumplimiento_semanal)}</span>
-                <button className="icon-btn" onClick={() => setEditar(h)} aria-label="Editar"><Icono name="edit" size={15} /></button>
-                <button className="icon-btn" onClick={() => borrar(h)} aria-label="Eliminar"><Icono name="trash" size={15} /></button>
               </div>
             </div>
           ))}
