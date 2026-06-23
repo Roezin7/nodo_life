@@ -33,7 +33,10 @@ const csp = {
     workerSrc: ["'self'"],
     objectSrc: ["'none'"],
     frameAncestors: ["'self'"],
-    upgradeInsecureRequests: [],
+    // No forzamos HTTPS: el deploy puede servirse por HTTP (p.ej. dominio sslip.io sin
+    // TLS). `upgrade-insecure-requests` rompería la carga de assets dejando la PWA en
+    // blanco. `null` elimina el directivo que helmet añade por defecto (useDefaults).
+    upgradeInsecureRequests: null,
   },
 };
 app.use(helmet({ contentSecurityPolicy: isProd ? csp : false }));
