@@ -4,7 +4,6 @@ import { useAuth } from '../auth';
 import { Page, useCargar, Field, Vacio, Modal } from '../ui';
 import { Icono } from '../icons';
 
-interface Area { id: number; nombre: string; color: string; icono: string; activo: boolean }
 interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; saldo_inicial: number; saldo: number }
 interface Ref { tipos_cuenta: { id: number; nombre: string }[]; cuentas: Cuenta[]; categorias: { id: number; nombre: string; clase: string; area_id: number | null }[] }
 interface Presupuesto { id: number; categoria_id: number | null; area_id: number | null; monto_limite: number }
@@ -13,7 +12,6 @@ export default function Configuracion() {
   return (
     <Page titulo="Configuración" icono="settings">
       <Perfil />
-      <AreasCfg />
       <CuentasCfg />
       <CategoriasCfg />
       <PresupuestosCfg />
@@ -60,29 +58,6 @@ function Perfil() {
       </div>
       <button className="btn-ghost" onClick={cambiarPin} disabled={!pinA || !pinN}>Cambiar PIN</button>
       {msg && <p className="row-sub">{msg}</p>}
-    </Seccion>
-  );
-}
-
-function AreasCfg() {
-  const [areas, recargar] = useCargar<Area[]>(() => api<Area[]>('/areas?todas=1'));
-  const [nombre, setNombre] = useState('');
-  const [color, setColor] = useState('#1F8EF1');
-  async function crear() { await api('/areas', { method: 'POST', body: { nombre, color } }); setNombre(''); recargar(); }
-  async function toggle(a: Area) { await api(`/areas/${a.id}`, { method: 'PATCH', body: { activo: !a.activo } }); recargar(); }
-  return (
-    <Seccion titulo="Áreas de vida">
-      {(areas ?? []).map((a) => (
-        <div key={a.id} className="row">
-          <div className="area-chip"><span className="area-dot" style={{ background: a.color }} /> {a.nombre}</div>
-          <button className="pill" onClick={() => toggle(a)}>{a.activo ? 'Activa' : 'Inactiva'}</button>
-        </div>
-      ))}
-      <div className="btn-row" style={{ marginTop: '0.6rem', alignItems: 'flex-end' }}>
-        <Field label="Nueva área"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
-        <input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 44, height: 38, padding: 2 }} />
-        <button className="btn-ghost" onClick={crear} disabled={!nombre}><Icono name="plus" size={14} /></button>
-      </div>
     </Seccion>
   );
 }

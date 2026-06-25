@@ -13,7 +13,9 @@ function viejo(fecha: Date): boolean {
   return Date.now() - fecha.getTime() > TTL_MIN * 60_000;
 }
 
-export const preciosDisponibles = () => !!env.FINNHUB_API_KEY;
+// Stooq es gratis y sin API key (cubre acciones, ETFs y fondos de EE.UU.), así que
+// siempre hay una fuente de precios; Finnhub sólo mejora la cobertura/latencia.
+export const preciosDisponibles = () => true;
 
 /** Quote de Finnhub: devuelve el precio actual (campo c) o null si falla. */
 async function fetchPrecioFinnhub(ticker: string): Promise<number | null> {
@@ -30,16 +32,48 @@ async function fetchPrecioFinnhub(ticker: string): Promise<number | null> {
 }
 
 /**
+ * Quote de Stooq (gratis, sin API key). A diferencia de Finnhub free, sí cubre
+ * fondos mutuos de EE.UU. (p.ej. SWPPX), además de acciones y ETFs. CSV con
+ * columnas Symbol,Date,Time,Open,High,Low,Close,Volume → tomamos el cierre.
+ */
+async function fetchPrecioStooq(ticker: string): Promise<number | null> {
+  try {
+    const sym = `${ticker.toLowerCase()}.us`;
+    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(sym)}&f=sd2t2ohlcv&h&e=csv`;
+    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const csv = await r.text();
+    const linea = csv.trim().split('\n')[1]; // 1ª fila = encabezados
+    if (!linea) return null;
+    const cols = linea.split(',');
+    const cierre = Number(cols[6]); // Close
+    return Number.isFinite(cierre) && cierre > 0 ? cierre : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Precio "mejor esfuerzo": Finnhub y, si no cotiza ahí (fondos), Stooq. */
+async function fetchPrecio(ticker: string): Promise<number | null> {
+  const finnhub = await fetchPrecioFinnhub(ticker);
+  if (finnhub != null) return finnhub;
+  return fetchPrecioStooq(ticker);
+}
+
+/**
  * Verifica que un ticker exista y sea cotizable por el proveedor (Finnhub free:
  * acciones y ETFs de EE.UU.). Devuelve el precio y el nombre si lo encuentra.
  * Nota: los fondos mutuos (p.ej. SWPPX) NO cotizan en el free tier de Finnhub,
  * así que devolverán `no_cotiza` aunque el símbolo exista.
  */
 export async function verificarTicker(ticker: string): Promise<{ found: boolean; precio: number | null; nombre: string | null; motivo?: string }> {
-  if (!env.FINNHUB_API_KEY) return { found: false, precio: null, nombre: null, motivo: 'sin_api_key' };
   const t = ticker.trim().toUpperCase();
-  const precio = await fetchPrecioFinnhub(t);
-  if (precio == null) return { found: false, precio: null, nombre: null, motivo: 'no_cotiza' };
+  // Finnhub (si hay key) y, si no cotiza ahí (p.ej. fondos), Stooq como respaldo.
+  const precio = (await fetchPrecioFinnhub(t)) ?? (await fetchPrecioStooq(t));
+  if (precio == null) {
+    return { found: false, precio: null, nombre: null, motivo: env.FINNHUB_API_KEY ? 'no_cotiza' : 'sin_api_key' };
+  }
+  if (!env.FINNHUB_API_KEY) return { found: true, precio, nombre: null }; // sólo Stooq, sin búsqueda de nombre
   // Nombre legible vía búsqueda de símbolos (best-effort).
   let nombre: string | null = null;
   try {
@@ -96,7 +130,7 @@ export async function preciosActuales(tickers: string[]): Promise<Map<string, nu
       out.set(ticker, num0(c.precio_actual));
       continue;
     }
-    const fresco = await fetchPrecioFinnhub(ticker);
+    const fresco = await fetchPrecio(ticker);
     if (fresco != null) {
       await prisma.precios_cache.upsert({
         where: { ticker },

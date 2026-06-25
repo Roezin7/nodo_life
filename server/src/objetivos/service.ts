@@ -5,6 +5,7 @@ import { iso, fechaDate } from '../lib/fecha.js';
 import { cumplimientoHabito } from '../habitos/service.js';
 import { avanceProyecto } from '../tareas/service.js';
 import { patrimonioActual } from '../patrimonio/service.js';
+import { areaDefaultId } from '../areas/service.js';
 
 export function progresoPct(valorActual: number, metaValor: number): number {
   if (metaValor <= 0) return 0;
@@ -13,7 +14,7 @@ export function progresoPct(valorActual: number, metaValor: number): number {
 
 export interface ObjetivoInput {
   nombre: string;
-  area_id: number;
+  area_id?: number;
   horizonte?: 'trimestral' | 'anual';
   metrica?: string;
   unidad?: string;
@@ -24,10 +25,11 @@ export interface ObjetivoInput {
 }
 
 export async function crearObjetivo(o: ObjetivoInput) {
+  const area_id = o.area_id != null ? BigInt(o.area_id) : await areaDefaultId();
   const creado = await prisma.objetivos.create({
     data: {
       nombre: o.nombre,
-      area_id: BigInt(o.area_id),
+      area_id,
       horizonte: o.horizonte ?? 'trimestral',
       metrica: o.metrica ?? null,
       unidad: o.unidad ?? null,

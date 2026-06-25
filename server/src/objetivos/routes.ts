@@ -16,7 +16,7 @@ objetivosRouter.get('/', asyncHandler(async (_req, res) => {
 objetivosRouter.post('/', asyncHandler(async (req, res) => {
   const b = z.object({
     nombre: z.string().min(1),
-    area_id: id,
+    area_id: id.optional(),
     horizonte: z.enum(['trimestral', 'anual']).optional(),
     metrica: z.string().optional(),
     unidad: z.string().optional(),

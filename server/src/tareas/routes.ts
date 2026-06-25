@@ -30,7 +30,7 @@ tareasRouter.get('/', asyncHandler(async (req, res) => {
 tareasRouter.post('/', asyncHandler(async (req, res) => {
   const b = z.object({
     titulo: z.string().min(1),
-    area_id: id,
+    area_id: id.optional(),
     proyecto_id: id.nullable().optional(),
     prioridad: prioridad.optional(),
     fecha_vence: fechaOrNull.optional(),
@@ -71,7 +71,7 @@ tareasRouter.get('/proyectos/:id', asyncHandler(async (req, res) => {
 tareasRouter.post('/proyectos', asyncHandler(async (req, res) => {
   const b = z.object({
     nombre: z.string().min(1),
-    area_id: id,
+    area_id: id.optional(),
     descripcion: z.string().optional(),
     estado: z.enum(['activo', 'pausado', 'hecho']).optional(),
   }).parse(req.body);

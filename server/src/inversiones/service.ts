@@ -8,7 +8,7 @@ import { preciosActuales, tasaUsdMxn, preciosDisponibles } from './precios.js';
 export interface PosicionInput {
   ticker: string;
   nombre?: string;
-  clase?: 'stock' | 'etf' | 'crypto';
+  clase?: 'stock' | 'etf' | 'fondo' | 'crypto';
   cantidad: number;
   precio_compra_prom: number;
   moneda?: string;

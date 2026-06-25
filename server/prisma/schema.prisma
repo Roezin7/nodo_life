@@ -173,6 +173,7 @@ model presupuestos {
 enum ClaseActivo {
   stock
   etf
+  fondo
   crypto
 }
 

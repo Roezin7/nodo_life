@@ -9,7 +9,7 @@ export const inversionesRouter = Router();
 inversionesRouter.use(requireAuth);
 
 const id = z.coerce.number().int().positive();
-const clase = z.enum(['stock', 'etf', 'crypto']);
+const clase = z.enum(['stock', 'etf', 'fondo', 'crypto']);
 
 /** Portafolio valuado a mercado (precio diferido) + P&L + FX. */
 inversionesRouter.get('/', asyncHandler(async (_req, res) => {

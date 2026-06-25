@@ -1,6 +1,7 @@
 import { prisma } from '../db.js';
 import { HttpError } from '../middleware/error.js';
 import { iso, fechaDate, hoyMX } from '../lib/fecha.js';
+import { areaDefaultId } from '../areas/service.js';
 
 function serializarTarea(t: {
   id: bigint; titulo: string; area_id: bigint; proyecto_id: bigint | null; prioridad: string;
@@ -25,7 +26,7 @@ function serializarTarea(t: {
 // ---------------------------------------------------------------------------
 export interface TareaInput {
   titulo: string;
-  area_id: number;
+  area_id?: number;
   proyecto_id?: number | null;
   prioridad?: 'baja' | 'media' | 'alta';
   fecha_vence?: string | null;
@@ -34,10 +35,11 @@ export interface TareaInput {
 }
 
 export async function crearTarea(t: TareaInput) {
+  const area_id = t.area_id != null ? BigInt(t.area_id) : await areaDefaultId();
   const creada = await prisma.tareas.create({
     data: {
       titulo: t.titulo,
-      area_id: BigInt(t.area_id),
+      area_id,
       proyecto_id: t.proyecto_id != null ? BigInt(t.proyecto_id) : null,
       prioridad: t.prioridad ?? 'media',
       fecha_vence: t.fecha_vence ? fechaDate(t.fecha_vence) : null,
@@ -101,12 +103,12 @@ export async function listarTareas(vista: 'hoy' | 'inbox' | 'todas', filtros: { 
 }
 
 /**
- * Tablero estilo Post-its: tareas generales (sin proyecto) repartidas en
- * Hoy / Próximos / Algún día, y una columna por proyecto activo con sus tareas.
- * Todo es interactivo: cada tarea se puede completar, editar o borrar.
+ * Tablero estilo "notas por día": las tareas generales (sin proyecto) se agrupan
+ * por su día (fecha_vence). Solo aparecen los días que tienen tareas pendientes,
+ * ordenados de más próximo a más lejano (los atrasados van primero). Además, una
+ * columna por proyecto activo. Las tareas legacy sin fecha caen en `sin_fecha`.
  */
 export async function tablero() {
-  const hoy = hoyMX();
   const orden = [{ fecha_vence: { sort: 'asc' as const, nulls: 'last' as const } }, { prioridad: 'desc' as const }, { id: 'desc' as const }];
   const [generales, proyectos] = await Promise.all([
     prisma.tareas.findMany({ where: { estado: 'pendiente', proyecto_id: null }, orderBy: orden, take: 500 }),
@@ -117,13 +119,24 @@ export async function tablero() {
     }),
   ]);
 
-  const venceHoyOAntes = (t: { fecha_vence: Date | null }) => t.fecha_vence != null && iso(t.fecha_vence) <= hoy;
-  const venceDespues = (t: { fecha_vence: Date | null }) => t.fecha_vence != null && iso(t.fecha_vence) > hoy;
+  // Agrupa por día (clave ISO). Preserva el orden de `generales` (ya viene asc por fecha).
+  const porDia = new Map<string, ReturnType<typeof serializarTarea>[]>();
+  const sin_fecha: ReturnType<typeof serializarTarea>[] = [];
+  for (const t of generales) {
+    const s = serializarTarea(t);
+    if (t.fecha_vence == null) { sin_fecha.push(s); continue; }
+    const clave = iso(t.fecha_vence);
+    const lista = porDia.get(clave) ?? [];
+    lista.push(s);
+    porDia.set(clave, lista);
+  }
+  const dias = [...porDia.entries()]
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([fecha, tareas]) => ({ fecha, tareas }));
 
   return {
-    hoy: generales.filter(venceHoyOAntes).map(serializarTarea),
-    proximos: generales.filter(venceDespues).map(serializarTarea),
-    algun_dia: generales.filter((t) => t.fecha_vence == null).map(serializarTarea),
+    dias,
+    sin_fecha,
     proyectos: proyectos.map((p) => {
       const total = p.tareas.length;
       const hechas = p.tareas.filter((t) => t.estado === 'hecha').length;
@@ -148,17 +161,18 @@ export async function tablero() {
 // ---------------------------------------------------------------------------
 export interface ProyectoInput {
   nombre: string;
-  area_id: number;
+  area_id?: number;
   descripcion?: string;
   estado?: 'activo' | 'pausado' | 'hecho';
 }
 
 export async function crearProyecto(p: ProyectoInput) {
+  const area_id = p.area_id != null ? BigInt(p.area_id) : await areaDefaultId();
   const max = await prisma.proyectos.aggregate({ _max: { orden: true } });
   const creado = await prisma.proyectos.create({
     data: {
       nombre: p.nombre,
-      area_id: BigInt(p.area_id),
+      area_id,
       descripcion: p.descripcion ?? null,
       estado: p.estado ?? 'activo',
       orden: (max._max.orden ?? 0) + 1,

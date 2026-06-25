@@ -3,22 +3,30 @@ import { api, pct } from '../api';
 import { Page, useCargar, Modal, Field, Progress } from '../ui';
 import { Icono } from '../icons';
 
-interface Tarea { id: number; titulo: string; area_id: number; proyecto_id: number | null; prioridad: string; fecha_vence: string | null; estado: string }
-interface ProyCol { id: number; nombre: string; area_id: number; area_nombre: string; area_color: string; estado: string; tareas_total: number; tareas_hechas: number; avance: number; tareas: Tarea[] }
-interface Tablero { hoy: Tarea[]; proximos: Tarea[]; algun_dia: Tarea[]; proyectos: ProyCol[] }
-interface Area { id: number; nombre: string; color: string }
+interface Tarea { id: number; titulo: string; proyecto_id: number | null; prioridad: string; fecha_vence: string | null; estado: string }
+interface ProyCol { id: number; nombre: string; estado: string; tareas_total: number; tareas_hechas: number; avance: number; tareas: Tarea[] }
+interface DiaCol { fecha: string; tareas: Tarea[] }
+interface Tablero { dias: DiaCol[]; sin_fecha: Tarea[]; proyectos: ProyCol[] }
 
 const hoyISO = () => new Date().toISOString().slice(0, 10);
 const masDias = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 
+/** Etiqueta amigable para una fecha ISO: Hoy / Mañana / Ayer / "lun 30 jun". */
+function etiquetaDia(iso: string): string {
+  if (iso === hoyISO()) return 'Hoy';
+  if (iso === masDias(1)) return 'Mañana';
+  if (iso === masDias(-1)) return 'Ayer';
+  const d = new Date(`${iso}T12:00:00`);
+  const s = d.toLocaleDateString('es-MX', { weekday: 'short', day: 'numeric', month: 'short' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 export default function Tareas() {
   const [tab, recargar, cargando] = useCargar<Tablero>(() => api<Tablero>('/tareas/tablero'));
-  const [areas] = useCargar<Area[]>(() => api<Area[]>('/areas'));
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [nuevoProy, setNuevoProy] = useState(false);
   const [editTarea, setEditTarea] = useState<Tarea | null>(null);
   const [editProy, setEditProy] = useState<ProyCol | null>(null);
-  const areaDefault = areas?.[0]?.id;
 
   async function toggle(t: Tarea) {
     await api(`/tareas/${t.id}`, { method: 'PATCH', body: { estado: t.estado === 'hecha' ? 'pendiente' : 'hecha' } });
@@ -30,8 +38,7 @@ export default function Tareas() {
     recargar();
   }
   async function crear(titulo: string, extra: Partial<Tarea>) {
-    if (areaDefault == null && extra.area_id == null) return;
-    await api('/tareas', { method: 'POST', body: { titulo, area_id: extra.area_id ?? areaDefault, fecha_vence: extra.fecha_vence ?? null, proyecto_id: extra.proyecto_id ?? null } });
+    await api('/tareas', { method: 'POST', body: { titulo, fecha_vence: extra.fecha_vence ?? hoyISO(), proyecto_id: extra.proyecto_id ?? null } });
     recargar();
   }
   async function borrarProy(p: ProyCol) {
@@ -47,38 +54,46 @@ export default function Tareas() {
     </div>
   );
 
+  // Notas por día: siempre mostramos "Hoy" como punto de captura, más cada día con tareas.
+  const diasMap = new Map<string, Tarea[]>();
+  for (const d of tab?.dias ?? []) diasMap.set(d.fecha, d.tareas);
+  if (!diasMap.has(hoyISO())) diasMap.set(hoyISO(), []);
+  const dias = [...diasMap.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+
   return (
     <Page titulo="Tareas" icono="checks" accion={accion}>
       {cargando || !tab ? <p className="muted">Cargando…</p> : (
         <div className="board">
-          <Columna titulo="Hoy" tareas={tab.hoy} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
-            onCrear={(t) => crear(t, { fecha_vence: hoyISO() })} />
-          <Columna titulo="Próximos días" tareas={tab.proximos} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
-            onCrear={(t) => crear(t, { fecha_vence: masDias(1) })} verFecha />
-          <Columna titulo="Algún día" tareas={tab.algun_dia} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
-            onCrear={(t) => crear(t, {})} />
+          {dias.map(([fecha, tareas]) => (
+            <Columna key={fecha} titulo={etiquetaDia(fecha)} vencido={fecha < hoyISO()} tareas={tareas}
+              onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea} onCrear={(t) => crear(t, { fecha_vence: fecha })} />
+          ))}
+          {tab.sin_fecha.length > 0 && (
+            <Columna titulo="Sin fecha" tareas={tab.sin_fecha} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
+              onCrear={(t) => crear(t, {})} />
+          )}
           {tab.proyectos.map((p) => (
-            <Columna key={p.id} titulo={p.nombre} color={p.area_color} tareas={p.tareas}
-              sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} color={p.area_color} /></>}
+            <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas}
+              sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} /></>}
               acciones={<>
                 <button className="icon-btn" onClick={() => setEditProy(p)} aria-label="Editar proyecto"><Icono name="edit" size={14} /></button>
                 <button className="icon-btn" onClick={() => borrarProy(p)} aria-label="Borrar proyecto"><Icono name="trash" size={14} /></button>
               </>}
               onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
-              onCrear={(t) => crear(t, { proyecto_id: p.id, area_id: p.area_id })} verFecha />
+              onCrear={(t) => crear(t, { proyecto_id: p.id })} verFecha />
           ))}
         </div>
       )}
-      {nuevaTarea && <TareaForm areas={areas ?? []} proyectos={tab?.proyectos ?? []} onClose={() => setNuevaTarea(false)} onSaved={() => { setNuevaTarea(false); recargar(); }} />}
-      {editTarea && <TareaForm areas={areas ?? []} proyectos={tab?.proyectos ?? []} tarea={editTarea} onClose={() => setEditTarea(null)} onSaved={() => { setEditTarea(null); recargar(); }} />}
-      {nuevoProy && <ProyectoForm areas={areas ?? []} onClose={() => setNuevoProy(false)} onSaved={() => { setNuevoProy(false); recargar(); }} />}
-      {editProy && <ProyectoForm areas={areas ?? []} proyecto={editProy} onClose={() => setEditProy(null)} onSaved={() => { setEditProy(null); recargar(); }} />}
+      {nuevaTarea && <TareaForm proyectos={tab?.proyectos ?? []} onClose={() => setNuevaTarea(false)} onSaved={() => { setNuevaTarea(false); recargar(); }} />}
+      {editTarea && <TareaForm proyectos={tab?.proyectos ?? []} tarea={editTarea} onClose={() => setEditTarea(null)} onSaved={() => { setEditTarea(null); recargar(); }} />}
+      {nuevoProy && <ProyectoForm onClose={() => setNuevoProy(false)} onSaved={() => { setNuevoProy(false); recargar(); }} />}
+      {editProy && <ProyectoForm proyecto={editProy} onClose={() => setEditProy(null)} onSaved={() => { setEditProy(null); recargar(); }} />}
     </Page>
   );
 }
 
-function Columna({ titulo, color, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha }: {
-  titulo: string; color?: string; sub?: React.ReactNode; acciones?: React.ReactNode; tareas: Tarea[]; verFecha?: boolean;
+function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha }: {
+  titulo: string; vencido?: boolean; sub?: React.ReactNode; acciones?: React.ReactNode; tareas: Tarea[]; verFecha?: boolean;
   onToggle: (t: Tarea) => void; onBorrar: (t: Tarea) => void; onEditar: (t: Tarea) => void; onCrear: (titulo: string) => void;
 }) {
   const [texto, setTexto] = useState('');
@@ -88,8 +103,8 @@ function Columna({ titulo, color, sub, acciones, tareas, onToggle, onBorrar, onE
       <div className="board-col-head">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="board-col-title">
-            {color && <span className="area-dot" style={{ background: color }} />}
             <strong>{titulo}</strong>
+            {vencido && <span className="prio-alta" title="Atrasado">●</span>}
             <span className="board-count">{tareas.length}</span>
           </div>
           {sub && <div className="board-col-sub">{sub}</div>}
@@ -114,18 +129,17 @@ function Columna({ titulo, color, sub, acciones, tareas, onToggle, onBorrar, onE
   );
 }
 
-function TareaForm({ areas, proyectos, tarea, onClose, onSaved }: { areas: Area[]; proyectos: ProyCol[]; tarea?: Tarea; onClose: () => void; onSaved: () => void }) {
+function TareaForm({ proyectos, tarea, onClose, onSaved }: { proyectos: ProyCol[]; tarea?: Tarea; onClose: () => void; onSaved: () => void }) {
   const [titulo, setTitulo] = useState(tarea?.titulo ?? '');
-  const [area, setArea] = useState<number | ''>(tarea?.area_id ?? areas[0]?.id ?? '');
   const [prioridad, setPrioridad] = useState(tarea?.prioridad ?? 'media');
-  const [fecha, setFecha] = useState(tarea?.fecha_vence ?? '');
+  const [fecha, setFecha] = useState(tarea?.fecha_vence ?? hoyISO());
   const [proyecto, setProyecto] = useState<number | ''>(tarea?.proyecto_id ?? '');
   const [error, setError] = useState('');
 
   async function guardar() {
     setError('');
     try {
-      const body = { titulo, area_id: area, prioridad, fecha_vence: fecha || null, proyecto_id: proyecto || null };
+      const body = { titulo, prioridad, fecha_vence: fecha, proyecto_id: proyecto || null };
       if (tarea) await api(`/tareas/${tarea.id}`, { method: 'PATCH', body });
       else await api('/tareas', { method: 'POST', body });
       onSaved();
@@ -135,37 +149,33 @@ function TareaForm({ areas, proyectos, tarea, onClose, onSaved }: { areas: Area[
   return (
     <Modal titulo={tarea ? 'Editar tarea' : 'Nueva tarea'} onClose={onClose}>
       <Field label="Título"><input value={titulo} onChange={(e) => setTitulo(e.target.value)} /></Field>
-      <Field label="Área"><select value={area} onChange={(e) => setArea(Number(e.target.value))}>{areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></Field>
+      <Field label="Día"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
       <Field label="Proyecto (opcional)"><select value={proyecto} onChange={(e) => setProyecto(e.target.value ? Number(e.target.value) : '')}><option value="">— pendiente general —</option>{proyectos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></Field>
       <Field label="Prioridad"><select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></Field>
-      <Field label="Vence (opcional)"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
       {error && <p className="error-msg">{error}</p>}
-      <button className="btn-primary" onClick={guardar} disabled={!titulo || !area}>Guardar</button>
+      <button className="btn-primary" onClick={guardar} disabled={!titulo || !fecha}>Guardar</button>
     </Modal>
   );
 }
 
-function ProyectoForm({ areas, proyecto, onClose, onSaved }: { areas: Area[]; proyecto?: ProyCol; onClose: () => void; onSaved: () => void }) {
+function ProyectoForm({ proyecto, onClose, onSaved }: { proyecto?: ProyCol; onClose: () => void; onSaved: () => void }) {
   const [nombre, setNombre] = useState(proyecto?.nombre ?? '');
-  const [area, setArea] = useState<number | ''>(proyecto?.area_id ?? areas[0]?.id ?? '');
   const [estado, setEstado] = useState(proyecto?.estado ?? 'activo');
   const [error, setError] = useState('');
   async function guardar() {
     setError('');
     try {
-      const body = { nombre, area_id: area, estado };
-      if (proyecto) await api(`/tareas/proyectos/${proyecto.id}`, { method: 'PATCH', body });
-      else await api('/tareas/proyectos', { method: 'POST', body: { nombre, area_id: area } });
+      if (proyecto) await api(`/tareas/proyectos/${proyecto.id}`, { method: 'PATCH', body: { nombre, estado } });
+      else await api('/tareas/proyectos', { method: 'POST', body: { nombre } });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }
   return (
     <Modal titulo={proyecto ? 'Editar proyecto' : 'Nuevo proyecto'} onClose={onClose}>
       <Field label="Nombre"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ibérico, otro negocio…" /></Field>
-      <Field label="Área"><select value={area} onChange={(e) => setArea(Number(e.target.value))}>{areas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></Field>
       {proyecto && <Field label="Estado"><select value={estado} onChange={(e) => setEstado(e.target.value)}><option value="activo">Activo</option><option value="pausado">Pausado</option><option value="hecho">Hecho</option></select></Field>}
       {error && <p className="error-msg">{error}</p>}
-      <button className="btn-primary" onClick={guardar} disabled={!nombre || !area}>Guardar</button>
+      <button className="btn-primary" onClick={guardar} disabled={!nombre}>Guardar</button>
     </Modal>
   );
 }

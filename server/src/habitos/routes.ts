@@ -21,7 +21,7 @@ habitosRouter.get('/', asyncHandler(async (req, res) => {
 habitosRouter.post('/', asyncHandler(async (req, res) => {
   const b = z.object({
     nombre: z.string().min(1),
-    area_id: id,
+    area_id: id.optional(),
     tipo: tipo.optional(),
     frecuencia: frecuencia.optional(),
     meta: z.coerce.number().positive().nullable().optional(),

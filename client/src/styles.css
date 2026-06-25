@@ -110,6 +110,10 @@ body,
   margin: 0;
   height: 100%;
 }
+html {
+  /* Desplazamiento suave en saltos de ancla/navegación y al reajustar la página. */
+  scroll-behavior: smooth;
+}
 body {
   font-family: var(--font-body);
   background: var(--bg);
@@ -117,6 +121,9 @@ body {
   -webkit-tap-highlight-color: transparent;
   font-size: 0.875rem;
   line-height: 1.4;
+  /* Inercia nativa en iOS y sin "rebote" que arrastre toda la app. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: none;
 }
 
 h1,
@@ -1490,7 +1497,86 @@ select:disabled {
   .bottom-link--on {
     color: var(--brand);
   }
+  .bottom-link {
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  /* Panel "Más": resto de secciones inalcanzables desde la barra inferior. */
+  .more-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: color-mix(in srgb, var(--bg) 35%, transparent);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: flex-end;
+    animation: fade-in 0.15s ease;
+  }
+  .more-sheet {
+    width: 100%;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: var(--r-card) var(--r-card) 0 0;
+    box-shadow: var(--sh-lg);
+    padding: 0.5rem 1rem calc(1rem + 58px + env(safe-area-inset-bottom));
+    animation: slide-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .more-sheet-handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong);
+    margin: 0.4rem auto 0.8rem;
+  }
+  .more-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+  }
+  .more-foot {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid var(--border);
+  }
+  .more-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.85rem 0.4rem;
+    border-radius: var(--r-input);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    text-decoration: none;
+    font-family: var(--font-ui);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 64px;
+  }
+  .more-link--on {
+    color: var(--brand);
+    border-color: var(--brand);
+    background: var(--brand-tint);
+  }
   /* La burbuja de Silvia se posiciona por arrastre (JS), no necesita reglas fijas aquí. */
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @media (max-width: 460px) {

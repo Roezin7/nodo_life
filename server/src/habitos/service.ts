@@ -3,10 +3,11 @@ import { num0 } from '../lib/num.js';
 import { HttpError } from '../middleware/error.js';
 import { iso, fechaDate, hoyMX, lunesDe } from '../lib/fecha.js';
 import { rachaActual, rachaMaxima, diasEstaSemana, cumplimientoSemanal } from './logic.js';
+import { areaDefaultId } from '../areas/service.js';
 
 export interface HabitoInput {
   nombre: string;
-  area_id: number;
+  area_id?: number;
   tipo?: 'binario' | 'numerico' | 'tiempo';
   frecuencia?: 'diaria' | 'semanal_x_veces';
   meta?: number | null;
@@ -14,11 +15,12 @@ export interface HabitoInput {
 }
 
 export async function crearHabito(h: HabitoInput) {
+  const area_id = h.area_id != null ? BigInt(h.area_id) : await areaDefaultId();
   const max = await prisma.habitos.aggregate({ _max: { orden: true } });
   const creado = await prisma.habitos.create({
     data: {
       nombre: h.nombre,
-      area_id: BigInt(h.area_id),
+      area_id,
       tipo: h.tipo ?? 'binario',
       frecuencia: h.frecuencia ?? 'diaria',
       meta: h.meta ?? null,

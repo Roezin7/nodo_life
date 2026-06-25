@@ -11,9 +11,10 @@ interface Accion {
   duracion_min?: number | null; titulo?: string | null; fecha?: string | null;
 }
 interface Ref { cuentas: { id: number; nombre: string }[]; categorias: { id: number; nombre: string; clase: string }[] }
-interface Area { id: number; nombre: string }
 interface Tracker { habitos: { id: number; nombre: string }[] }
 interface Tipo { id: number; nombre: string }
+
+const hoyISO = () => new Date().toISOString().slice(0, 10);
 
 const LABELS: Record<Accion['tipo'], string> = {
   gasto: 'Gasto', ingreso: 'Ingreso', peso: 'Peso', habito: 'Hábito', entrenamiento: 'Entrenamiento', tarea: 'Tarea',
@@ -27,7 +28,6 @@ export default function CapturaDraft() {
   const [hechas, setHechas] = useState<Set<number>>(new Set());
 
   const [ref] = useCargar<Ref>(() => api<Ref>('/finanzas/referencias'));
-  const [areas] = useCargar<Area[]>(() => api<Area[]>('/areas'));
   const [tracker] = useCargar<Tracker>(() => api<Tracker>('/habitos'));
   const [tipos] = useCargar<Tipo[]>(() => api<Tipo[]>('/salud/tipos'));
 
@@ -52,7 +52,7 @@ export default function CapturaDraft() {
           tipo: a.tipo, monto: a.monto,
           cuenta_origen_id: a.tipo === 'gasto' ? a.cuenta_id ?? null : null,
           cuenta_destino_id: a.tipo === 'ingreso' ? a.cuenta_id ?? null : null,
-          categoria_id: a.categoria_id ?? null, area_id: a.area_id ?? null, descripcion: a.descripcion ?? undefined, fecha: a.fecha ?? undefined,
+          categoria_id: a.categoria_id ?? null, descripcion: a.descripcion ?? undefined, fecha: a.fecha ?? undefined,
         } });
       } else if (a.tipo === 'peso') {
         await api('/salud/peso', { method: 'POST', body: { peso: a.peso, fecha: a.fecha ?? undefined } });
@@ -61,7 +61,7 @@ export default function CapturaDraft() {
       } else if (a.tipo === 'entrenamiento' && a.tipo_entrenamiento_id) {
         await api('/salud/entrenamientos', { method: 'POST', body: { tipo_id: a.tipo_entrenamiento_id, duracion_min: a.duracion_min ?? undefined, notas: a.descripcion ?? undefined, fecha: a.fecha ?? undefined } });
       } else if (a.tipo === 'tarea') {
-        await api('/tareas', { method: 'POST', body: { titulo: a.titulo, area_id: a.area_id ?? areas?.[0]?.id, fecha_vence: a.fecha ?? null } });
+        await api('/tareas', { method: 'POST', body: { titulo: a.titulo, fecha_vence: a.fecha ?? hoyISO() } });
       }
       setHechas((s) => new Set(s).add(i));
     } catch (e) { setError(e instanceof Error ? e.message : 'Error al confirmar'); }
@@ -106,9 +106,7 @@ export default function CapturaDraft() {
           {a.tipo === 'tarea' && (
             <>
               <input className="inp" placeholder="Título" value={a.titulo ?? ''} onChange={(e) => actualizar(i, { titulo: e.target.value })} style={{ marginBottom: 6 }} />
-              <select className="inp" value={a.area_id ?? ''} onChange={(e) => actualizar(i, { area_id: Number(e.target.value) })}>
-                <option value="">Área…</option>{(areas ?? []).map((ar) => <option key={ar.id} value={ar.id}>{ar.nombre}</option>)}
-              </select>
+              <input className="inp" type="date" value={a.fecha ?? hoyISO()} onChange={(e) => actualizar(i, { fecha: e.target.value })} />
             </>
           )}
           <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => confirmar(a, i)} disabled={hechas.has(i)}>

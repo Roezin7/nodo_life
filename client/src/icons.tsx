@@ -71,6 +71,7 @@ const PATHS: Record<string, JSX.Element> = {
     </>
   ),
   x: <path d="M6 6l12 12M18 6 6 18" />,
+  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   send: <path d="M22 3 11 14M22 3l-7 19-4-8-8-4 19-7Z" />,
   pin: (
     <>
