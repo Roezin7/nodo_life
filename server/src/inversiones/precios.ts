@@ -13,8 +13,9 @@ function viejo(fecha: Date): boolean {
   return Date.now() - fecha.getTime() > TTL_MIN * 60_000;
 }
 
-// Stooq es gratis y sin API key (cubre acciones, ETFs y fondos de EE.UU.), así que
-// siempre hay una fuente de precios; Finnhub sólo mejora la cobertura/latencia.
+// Yahoo Finance es gratis y sin API key, y cubre acciones, ETFs, fondos mutuos
+// (p.ej. SWPPX) y crypto, así que siempre hay una fuente de precios. Finnhub queda
+// como respaldo opcional si hay key.
 export const preciosDisponibles = () => true;
 
 /** Quote de Finnhub: devuelve el precio actual (campo c) o null si falla. */
@@ -31,61 +32,50 @@ async function fetchPrecioFinnhub(ticker: string): Promise<number | null> {
   }
 }
 
+interface QuoteYahoo { precio: number; nombre: string | null; moneda: string | null }
+
 /**
- * Quote de Stooq (gratis, sin API key). A diferencia de Finnhub free, sí cubre
- * fondos mutuos de EE.UU. (p.ej. SWPPX), además de acciones y ETFs. CSV con
- * columnas Symbol,Date,Time,Open,High,Low,Close,Volume → tomamos el cierre.
+ * Quote de Yahoo Finance (gratis, sin API key). El endpoint `chart` devuelve en
+ * `meta` el último precio de mercado, nombre y moneda. Cubre fondos mutuos como
+ * SWPPX además de acciones, ETFs y crypto (BTC-USD). Requiere un User-Agent.
  */
-async function fetchPrecioStooq(ticker: string): Promise<number | null> {
+async function fetchQuoteYahoo(ticker: string): Promise<QuoteYahoo | null> {
   try {
-    const sym = `${ticker.toLowerCase()}.us`;
-    const url = `https://stooq.com/q/l/?s=${encodeURIComponent(sym)}&f=sd2t2ohlcv&h&e=csv`;
-    const r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+    const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(8000) });
     if (!r.ok) return null;
-    const csv = await r.text();
-    const linea = csv.trim().split('\n')[1]; // 1ª fila = encabezados
-    if (!linea) return null;
-    const cols = linea.split(',');
-    const cierre = Number(cols[6]); // Close
-    return Number.isFinite(cierre) && cierre > 0 ? cierre : null;
+    const j = (await r.json()) as {
+      chart?: { result?: { meta?: { regularMarketPrice?: number; longName?: string; shortName?: string; currency?: string } }[] };
+    };
+    const meta = j.chart?.result?.[0]?.meta;
+    const precio = meta?.regularMarketPrice;
+    if (typeof precio !== 'number' || !(precio > 0)) return null;
+    return { precio, nombre: meta?.longName ?? meta?.shortName ?? null, moneda: meta?.currency ?? null };
   } catch {
     return null;
   }
 }
 
-/** Precio "mejor esfuerzo": Finnhub y, si no cotiza ahí (fondos), Stooq. */
+/** Precio "mejor esfuerzo": Yahoo (cubre todo) y, si falla, Finnhub. */
 async function fetchPrecio(ticker: string): Promise<number | null> {
-  const finnhub = await fetchPrecioFinnhub(ticker);
-  if (finnhub != null) return finnhub;
-  return fetchPrecioStooq(ticker);
+  const yahoo = await fetchQuoteYahoo(ticker);
+  if (yahoo != null) return yahoo.precio;
+  return fetchPrecioFinnhub(ticker);
 }
 
 /**
- * Verifica que un ticker exista y sea cotizable por el proveedor (Finnhub free:
- * acciones y ETFs de EE.UU.). Devuelve el precio y el nombre si lo encuentra.
- * Nota: los fondos mutuos (p.ej. SWPPX) NO cotizan en el free tier de Finnhub,
- * así que devolverán `no_cotiza` aunque el símbolo exista.
+ * Verifica que un ticker exista y sea cotizable. Usa Yahoo Finance (cubre fondos
+ * mutuos como SWPPX, acciones, ETFs y crypto) y, si falla, Finnhub como respaldo.
+ * Devuelve el precio y el nombre legible si los encuentra.
  */
 export async function verificarTicker(ticker: string): Promise<{ found: boolean; precio: number | null; nombre: string | null; motivo?: string }> {
   const t = ticker.trim().toUpperCase();
-  // Finnhub (si hay key) y, si no cotiza ahí (p.ej. fondos), Stooq como respaldo.
-  const precio = (await fetchPrecioFinnhub(t)) ?? (await fetchPrecioStooq(t));
-  if (precio == null) {
-    return { found: false, precio: null, nombre: null, motivo: env.FINNHUB_API_KEY ? 'no_cotiza' : 'sin_api_key' };
-  }
-  if (!env.FINNHUB_API_KEY) return { found: true, precio, nombre: null }; // sólo Stooq, sin búsqueda de nombre
-  // Nombre legible vía búsqueda de símbolos (best-effort).
-  let nombre: string | null = null;
-  try {
-    const r = await fetch(`https://finnhub.io/api/v1/search?q=${encodeURIComponent(t)}&token=${env.FINNHUB_API_KEY}`, { signal: AbortSignal.timeout(8000) });
-    if (r.ok) {
-      const j = (await r.json()) as { result?: { symbol?: string; description?: string }[] };
-      nombre = j.result?.find((x) => x.symbol?.toUpperCase() === t)?.description ?? null;
-    }
-  } catch {
-    // ignoramos: el nombre es opcional
-  }
-  return { found: true, precio, nombre };
+  const yahoo = await fetchQuoteYahoo(t);
+  if (yahoo != null) return { found: true, precio: yahoo.precio, nombre: yahoo.nombre };
+  // Respaldo: Finnhub (si hay key).
+  const precio = await fetchPrecioFinnhub(t);
+  if (precio == null) return { found: false, precio: null, nombre: null, motivo: 'no_cotiza' };
+  return { found: true, precio, nombre: null };
 }
 
 /** FX USD->MXN gratis y sin key. */

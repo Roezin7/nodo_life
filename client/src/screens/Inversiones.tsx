@@ -102,7 +102,7 @@ function NuevaPosicion({ onClose, onSaved }: { onClose: () => void; onSaved: () 
         verif.found
           ? <p className="row-sub" style={{ color: 'var(--success)' }}>✓ Encontrado{verif.nombre ? `: ${verif.nombre}` : ''}{verif.precio != null ? ` · ahora ${verif.precio} ${moneda}` : ''}</p>
           : <p className="row-sub" style={{ color: 'var(--warning)' }}>
-              ⚠ No encontramos cotización para ese símbolo (ni en Finnhub ni en Stooq). Revisa el ticker; puedes guardarla igual y verás tu costo.
+              ⚠ No encontramos cotización para ese símbolo. Revisa el ticker; puedes guardarla igual y verás tu costo.
             </p>
       )}
       <Field label="Nombre (opcional)"><input value={nombre} onChange={(e) => setNombre(e.target.value)} /></Field>
