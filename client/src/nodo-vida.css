@@ -245,3 +245,61 @@
   color: var(--success);
   border-color: color-mix(in srgb, var(--success) 25%, transparent);
 }
+
+/* Filtro por área (chips) — columna vertebral de áreas visible en la UI. */
+.area-filtro {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
+}
+.area-chip-btn {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--ink-2);
+  padding: 0.4rem 0.8rem; border-radius: var(--r-pill);
+  font-family: var(--font-ui); font-weight: 600; font-size: 0.8rem;
+  min-height: 38px; transition: background 0.14s, color 0.14s, border-color 0.14s;
+}
+.area-chip-btn--on { background: var(--ink); border-color: var(--ink); color: var(--on-primary); }
+
+/* Hero de bienvenida del Inicio — tono de app de bienestar. */
+.hero {
+  display: flex; align-items: center; gap: 1rem;
+  padding: 1.4rem 1.5rem; margin-bottom: 1.25rem;
+  border-radius: var(--r-card);
+  background:
+    radial-gradient(130% 130% at 0% 0%, color-mix(in srgb, var(--brand) 16%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, var(--surface) 0%, var(--surface) 100%);
+  border: 1px solid var(--border);
+  box-shadow: var(--sh-sm);
+}
+.hero-saludo { font-family: var(--font-ui); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.hero-fecha { color: var(--ink-3); font-size: 0.85rem; text-transform: capitalize; margin: 0.15rem 0 0; }
+.hero-anillo { flex: 0 0 auto; margin-left: auto; }
+
+/* Onboarding de primer uso. */
+.ob-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  display: grid; place-items: center;
+  padding: calc(1.5rem + env(safe-area-inset-top)) 1.25rem calc(1.5rem + env(safe-area-inset-bottom));
+  background: radial-gradient(120% 80% at 50% -10%, var(--brand-tint) 0%, transparent 55%), var(--bg);
+  animation: fade-in 0.2s ease;
+}
+.ob-card {
+  width: min(100%, 440px);
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-card);
+  box-shadow: var(--sh-lg); padding: 1.5rem 1.4rem 1.25rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.ob-brand { display: flex; justify-content: center; margin-bottom: 0.25rem; }
+.ob-dots { display: flex; gap: 0.35rem; justify-content: center; margin-bottom: 0.5rem; }
+.ob-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border-strong); transition: background 0.2s, width 0.2s; }
+.ob-dot--on { background: var(--brand); width: 20px; border-radius: var(--r-pill); }
+.ob-title { text-align: center; font-size: 1.3rem; }
+.ob-lead { color: var(--ink-2); font-size: 0.95rem; line-height: 1.5; margin: 0.25rem 0 0.6rem; }
+.ob-body { min-height: 120px; display: flex; flex-direction: column; gap: 0.5rem; justify-content: center; }
+.ob-body input { width: 100%; }
+.ob-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; }
+.ob-areas { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.25rem 0; }
+.ob-area {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-pill);
+  padding: 0.45rem 0.85rem; font-family: var(--font-ui); font-weight: 600; font-size: 0.85rem;
+}

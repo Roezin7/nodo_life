@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from './api';
 import { AuthProvider, useAuth } from './auth';
 import Login from './screens/Login';
+import Onboarding from './screens/Onboarding';
 import Home from './screens/Home';
 import Finanzas from './screens/Finanzas';
 import Inversiones from './screens/Inversiones';
@@ -19,6 +21,15 @@ import SplashIntro from './brand/SplashIntro';
 
 function AppBody() {
   const { usuario, cargando } = useAuth();
+  // null = aún no sabemos; true/false = mostrar o no el onboarding.
+  const [onboarding, setOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!usuario) { setOnboarding(null); return; }
+    api<Record<string, string>>('/settings')
+      .then((s) => setOnboarding(s.onboarding_done !== '1'))
+      .catch(() => setOnboarding(false)); // ante un error, no atrapamos al usuario.
+  }, [usuario]);
 
   if (cargando) {
     return (
@@ -28,6 +39,7 @@ function AppBody() {
     );
   }
   if (!usuario) return <Login />;
+  if (onboarding) return <Onboarding onDone={() => setOnboarding(false)} />;
 
   return (
     <Shell>

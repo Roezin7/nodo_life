@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { api, pct } from '../api';
 import { Page, useCargar, Modal, Field, Progress } from '../ui';
 import { Icono } from '../icons';
+import { useAreas, FiltroArea } from '../areas';
 
-interface Tarea { id: number; titulo: string; proyecto_id: number | null; prioridad: string; fecha_vence: string | null; estado: string }
-interface ProyCol { id: number; nombre: string; estado: string; tareas_total: number; tareas_hechas: number; avance: number; tareas: Tarea[] }
+interface Tarea { id: number; titulo: string; area_id: number; proyecto_id: number | null; prioridad: string; fecha_vence: string | null; estado: string }
+interface ProyCol { id: number; nombre: string; area_id: number; area_color: string; estado: string; tareas_total: number; tareas_hechas: number; avance: number; tareas: Tarea[] }
 interface DiaCol { fecha: string; tareas: Tarea[] }
 interface Tablero { dias: DiaCol[]; sin_fecha: Tarea[]; proyectos: ProyCol[] }
 
@@ -23,10 +24,15 @@ function etiquetaDia(iso: string): string {
 
 export default function Tareas() {
   const [tab, recargar, cargando] = useCargar<Tablero>(() => api<Tablero>('/tareas/tablero'));
+  const [areas] = useAreas();
+  const [area, setArea] = useState<number | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
   const [nuevoProy, setNuevoProy] = useState(false);
   const [editTarea, setEditTarea] = useState<Tarea | null>(null);
   const [editProy, setEditProy] = useState<ProyCol | null>(null);
+
+  const colorArea = (id: number) => areas?.find((a) => a.id === id)?.color ?? 'transparent';
+  const filtrar = (ts: Tarea[]) => (area == null ? ts : ts.filter((t) => t.area_id === area));
 
   async function toggle(t: Tarea) {
     await api(`/tareas/${t.id}`, { method: 'PATCH', body: { estado: t.estado === 'hecha' ? 'pendiente' : 'hecha' } });
@@ -38,7 +44,7 @@ export default function Tareas() {
     recargar();
   }
   async function crear(titulo: string, extra: Partial<Tarea>) {
-    await api('/tareas', { method: 'POST', body: { titulo, fecha_vence: extra.fecha_vence ?? hoyISO(), proyecto_id: extra.proyecto_id ?? null } });
+    await api('/tareas', { method: 'POST', body: { titulo, fecha_vence: extra.fecha_vence ?? hoyISO(), proyecto_id: extra.proyecto_id ?? null, area_id: area ?? undefined } });
     recargar();
   }
   async function borrarProy(p: ProyCol) {
@@ -60,21 +66,24 @@ export default function Tareas() {
   if (!diasMap.has(hoyISO())) diasMap.set(hoyISO(), []);
   const dias = [...diasMap.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
 
+  const proyectosVis = (tab?.proyectos ?? []).filter((p) => area == null || p.area_id === area);
+
   return (
     <Page titulo="Tareas" icono="checks" accion={accion}>
+      {areas && <FiltroArea areas={areas} value={area} onChange={setArea} />}
       {cargando || !tab ? <p className="muted">Cargando…</p> : (
         <div className="board">
           {dias.map(([fecha, tareas]) => (
-            <Columna key={fecha} titulo={etiquetaDia(fecha)} vencido={fecha < hoyISO()} tareas={tareas}
+            <Columna key={fecha} titulo={etiquetaDia(fecha)} vencido={fecha < hoyISO()} tareas={filtrar(tareas)} colorArea={colorArea}
               onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea} onCrear={(t) => crear(t, { fecha_vence: fecha })} />
           ))}
-          {tab.sin_fecha.length > 0 && (
-            <Columna titulo="Sin fecha" tareas={tab.sin_fecha} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
+          {filtrar(tab.sin_fecha).length > 0 && (
+            <Columna titulo="Sin fecha" tareas={filtrar(tab.sin_fecha)} colorArea={colorArea} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
               onCrear={(t) => crear(t, {})} />
           )}
-          {tab.proyectos.map((p) => (
-            <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas}
-              sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} /></>}
+          {proyectosVis.map((p) => (
+            <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas} colorArea={colorArea}
+              sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} color={p.area_color} /></>}
               acciones={<>
                 <button className="icon-btn" onClick={() => setEditProy(p)} aria-label="Editar proyecto"><Icono name="edit" size={14} /></button>
                 <button className="icon-btn" onClick={() => borrarProy(p)} aria-label="Borrar proyecto"><Icono name="trash" size={14} /></button>
@@ -92,8 +101,9 @@ export default function Tareas() {
   );
 }
 
-function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha }: {
+function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha, colorArea }: {
   titulo: string; vencido?: boolean; sub?: React.ReactNode; acciones?: React.ReactNode; tareas: Tarea[]; verFecha?: boolean;
+  colorArea?: (id: number) => string;
   onToggle: (t: Tarea) => void; onBorrar: (t: Tarea) => void; onEditar: (t: Tarea) => void; onCrear: (titulo: string) => void;
 }) {
   const [texto, setTexto] = useState('');
@@ -116,6 +126,7 @@ function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, o
           <div key={t.id} className="board-card">
             <button className={`check ${t.estado === 'hecha' ? 'check--on' : ''}`} onClick={() => onToggle(t)} aria-label="Completar"><Icono name="checks" size={11} /></button>
             <span className="board-card-title" onClick={() => onEditar(t)}>
+              {colorArea && <span className="area-dot" style={{ background: colorArea(t.area_id), marginRight: 2 }} />}
               {t.prioridad === 'alta' && <span className="prio-alta" title="Prioridad alta">●</span>}
               {t.titulo}
               {verFecha && t.fecha_vence && <span className="board-card-fecha">{t.fecha_vence.slice(5)}</span>}

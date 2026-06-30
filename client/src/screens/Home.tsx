@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { api, mxn, pct } from '../api';
 import { Icono } from '../icons';
 import { Page, useCargar, Stat, Progress, Vacio, LineChart } from '../ui';
+import { useAuth } from '../auth';
+
+function saludoHora(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Buenos días';
+  if (h < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+const FECHA_FMT = new Intl.DateTimeFormat('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
 
 interface Dash {
   fecha: string;
@@ -14,9 +23,11 @@ interface Dash {
 }
 
 export default function Home() {
+  const { usuario } = useAuth();
   const [d, recargar, cargando, error] = useCargar<Dash>(() => api<Dash>('/dashboard'));
   const [ocupado, setOcupado] = useState(false);
   const [peso, setPeso] = useState('');
+  const nombre = usuario?.nombre?.split(' ')[0] ?? '';
 
   // Una acción a la vez: evita doble-toque y condiciones de carrera al recargar.
   async function accion(fn: () => Promise<unknown>) {
@@ -51,6 +62,14 @@ export default function Home() {
 
   return (
     <Page titulo="Inicio" icono="home">
+      <div className="hero">
+        <div>
+          <p className="hero-saludo">{saludoHora()}{nombre ? `, ${nombre}` : ''}.</p>
+          <p className="hero-fecha">{FECHA_FMT.format(new Date())}</p>
+        </div>
+        <div className="hero-anillo"><Anillo valor={d.habitos.total ? d.habitos.hechos_hoy / d.habitos.total : 0} /></div>
+      </div>
+
       <div className={`hoy-nudge ${pendientes.length === 0 ? 'hoy-nudge--ok' : ''}`}>
         <Icono name={pendientes.length === 0 ? 'checks' : 'sparkles'} size={18} />
         <span>{pendientes.length === 0 ? 'Todo al día por hoy. 🎉' : <>Hoy te falta: <strong>{pendientes.join(' · ')}</strong></>}</span>
@@ -141,5 +160,21 @@ export default function Home() {
         </div>
       </div>
     </Page>
+  );
+}
+
+/** Anillo de progreso (0..1). Muestra el avance de hábitos del día. */
+function Anillo({ valor }: { valor: number }) {
+  const r = 26, c = 2 * Math.PI * r;
+  const v = Math.max(0, Math.min(1, valor));
+  const completo = v >= 1;
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" aria-hidden>
+      <circle cx="32" cy="32" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="6" />
+      <circle cx="32" cy="32" r={r} fill="none" stroke={completo ? 'var(--success)' : 'var(--brand)'} strokeWidth="6"
+        strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v)} transform="rotate(-90 32 32)"
+        style={{ transition: 'stroke-dashoffset 0.5s ease' }} />
+      <text x="32" y="36" textAnchor="middle" fontSize="15" fontWeight="600" fill="var(--ink)" fontFamily="var(--font-ui)">{Math.round(v * 100)}%</text>
+    </svg>
   );
 }
