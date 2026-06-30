@@ -6,7 +6,7 @@ import { Icono } from '../icons';
 interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; es_central: boolean; saldo: number }
 interface Categoria { id: number; nombre: string; clase: 'ingreso' | 'gasto'; area_id: number | null }
 interface Ref { tipos_cuenta: { id: number; nombre: string }[]; cuentas: Cuenta[]; categorias: Categoria[] }
-interface Mov { id: number; fecha: string; tipo: string; monto: number; cuenta_origen_id: number | null; cuenta_destino_id: number | null; categoria_id: number | null; descripcion: string | null }
+interface Mov { id: number; fecha: string; tipo: string; monto: number; cuenta_origen_id: number | null; cuenta_destino_id: number | null; categoria_id: number | null; area_id: number | null; descripcion: string | null }
 interface Dash {
   mes: string;
   resumen: { ingresos: number; gastos: number; flujo: number; tasa_ahorro: number };
@@ -56,7 +56,7 @@ export default function Finanzas() {
         {tab === 'cobrar' && <CobrarDeudas modo="cobrar" />}
         {tab === 'deudas' && <CobrarDeudas modo="deudas" />}
       </div>
-      {nuevo && ref && <NuevoMovimiento ref_={ref} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargarRef(); }} />}
+      {nuevo && ref && <MovimientoForm ref_={ref} onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargarRef(); }} />}
     </Page>
   );
 }
@@ -145,6 +145,7 @@ function ResumenBody({ d }: { d: Dash }) {
 
 function Movimientos({ nav, ref_ }: { nav: NavProps; ref_: Ref }) {
   const [movs, recargar, cargando] = useCargar<Mov[]>(() => api<Mov[]>(`/finanzas/movimientos?periodo=${nav.periodo}&ref=${nav.cursor}`), [nav.periodo, nav.cursor]);
+  const [editar, setEditar] = useState<Mov | null>(null);
   const cuentaNombre = (id: number | null) => ref_.cuentas.find((c) => c.id === id)?.nombre ?? '';
   const catNombre = (id: number | null) => ref_.categorias.find((c) => c.id === id)?.nombre ?? '';
 
@@ -170,44 +171,51 @@ function Movimientos({ nav, ref_ }: { nav: NavProps; ref_: Ref }) {
                   </span>
                 </div>
                 <span className={`row-amount ${m.tipo === 'ingreso' ? 'pos' : m.tipo === 'gasto' ? 'neg' : ''}`}>{signo}{mxn(m.monto)}</span>
-                <button className="icon-btn" onClick={() => borrar(m.id)}><Icono name="trash" size={15} /></button>
+                <button className="icon-btn" onClick={() => setEditar(m)} aria-label="Editar"><Icono name="edit" size={15} /></button>
+                <button className="icon-btn" onClick={() => borrar(m.id)} aria-label="Borrar"><Icono name="trash" size={15} /></button>
               </div>
             );
           })}
         </div>
       )}
+      {editar && <MovimientoForm ref_={ref_} mov={editar} onClose={() => setEditar(null)} onSaved={() => { setEditar(null); recargar(); }} />}
     </>
   );
 }
 
-function NuevoMovimiento({ ref_, onClose, onSaved }: { ref_: Ref; onClose: () => void; onSaved: () => void }) {
-  const [tipo, setTipo] = useState<'gasto' | 'ingreso' | 'transferencia'>('gasto');
-  const [monto, setMonto] = useState('');
-  const [origen, setOrigen] = useState<number | ''>(ref_.cuentas[0]?.id ?? '');
-  const [destino, setDestino] = useState<number | ''>(ref_.cuentas[0]?.id ?? '');
-  const [categoria, setCategoria] = useState<number | ''>('');
-  const [desc, setDesc] = useState('');
+function MovimientoForm({ ref_, mov, onClose, onSaved }: { ref_: Ref; mov?: Mov; onClose: () => void; onSaved: () => void }) {
+  const [tipo, setTipo] = useState<'gasto' | 'ingreso' | 'transferencia'>((mov?.tipo as 'gasto' | 'ingreso' | 'transferencia') ?? 'gasto');
+  const [monto, setMonto] = useState(mov ? String(mov.monto) : '');
+  const [fecha, setFecha] = useState(mov?.fecha ?? hoyDia());
+  const [origen, setOrigen] = useState<number | ''>(mov?.cuenta_origen_id ?? ref_.cuentas[0]?.id ?? '');
+  const [destino, setDestino] = useState<number | ''>(mov?.cuenta_destino_id ?? ref_.cuentas[0]?.id ?? '');
+  const [categoria, setCategoria] = useState<number | ''>(mov?.categoria_id ?? '');
+  const [desc, setDesc] = useState(mov?.descripcion ?? '');
   const [error, setError] = useState('');
   const cats = ref_.categorias.filter((c) => c.clase === (tipo === 'ingreso' ? 'ingreso' : 'gasto'));
 
   async function guardar() {
     setError('');
     try {
-      await api('/finanzas/movimientos', { method: 'POST', body: {
-        tipo, monto: Number(monto),
+      const body = {
+        tipo, monto: Number(monto), fecha,
         cuenta_origen_id: tipo !== 'ingreso' ? origen || null : null,
         cuenta_destino_id: tipo !== 'gasto' ? destino || null : null,
         categoria_id: tipo !== 'transferencia' ? (categoria || null) : null,
+        area_id: mov?.area_id ?? undefined,
         descripcion: desc || undefined,
-      } });
+      };
+      if (mov) await api(`/finanzas/movimientos/${mov.id}`, { method: 'PATCH', body });
+      else await api('/finanzas/movimientos', { method: 'POST', body });
       onSaved();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }
 
   return (
-    <Modal titulo="Nuevo movimiento" onClose={onClose}>
+    <Modal titulo={mov ? 'Editar movimiento' : 'Nuevo movimiento'} onClose={onClose}>
       <Segmented value={tipo} onChange={setTipo} opciones={[{ v: 'gasto', label: 'Gasto' }, { v: 'ingreso', label: 'Ingreso' }, { v: 'transferencia', label: 'Transferencia' }]} />
       <Field label="Monto (MXN)"><input type="number" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0.00" /></Field>
+      <Field label="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
       {tipo !== 'ingreso' && (
         <Field label="Cuenta origen"><select value={origen} onChange={(e) => setOrigen(Number(e.target.value))}>{ref_.cuentas.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></Field>
       )}
@@ -219,7 +227,7 @@ function NuevoMovimiento({ ref_, onClose, onSaved }: { ref_: Ref; onClose: () =>
       )}
       <Field label="Descripción"><input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="opcional" /></Field>
       {error && <p className="error-msg">{error}</p>}
-      <button className="btn-primary" onClick={guardar}>Guardar</button>
+      <button className="btn-primary" onClick={guardar} disabled={!monto}>Guardar</button>
     </Modal>
   );
 }
@@ -229,10 +237,17 @@ function CobrarDeudas({ modo }: { modo: 'cobrar' | 'deudas' }) {
   const path = modo === 'cobrar' ? '/finanzas/por-cobrar' : '/finanzas/deudas';
   const [items, recargar, cargando] = useCargar<ItemCD[]>(() => api<ItemCD[]>(path), [modo]);
   const [nuevo, setNuevo] = useState(false);
+  const [editar, setEditar] = useState<ItemCD | null>(null);
   const [desc, setDesc] = useState('');
   const [quien, setQuien] = useState('');
   const [monto, setMonto] = useState('');
   const estadoCerrado = modo === 'cobrar' ? 'cobrado' : 'pagado';
+
+  async function borrar(it: ItemCD) {
+    if (!confirm(`¿Borrar "${it.descripcion}"?`)) return;
+    await api(`${path}/${it.id}`, { method: 'DELETE' });
+    recargar();
+  }
 
   async function crear() {
     const body: Record<string, unknown> = { descripcion: desc, monto: Number(monto) };
@@ -268,10 +283,42 @@ function CobrarDeudas({ modo }: { modo: 'cobrar' | 'deudas' }) {
               </div>
               <span className="row-amount">{mxn(it.monto)}</span>
               <button className="pill" onClick={() => marcar(it)}>{it.estado === 'pendiente' ? 'Marcar' : '↩'}</button>
+              <button className="icon-btn" onClick={() => setEditar(it)} aria-label="Editar"><Icono name="edit" size={15} /></button>
+              <button className="icon-btn" onClick={() => borrar(it)} aria-label="Borrar"><Icono name="trash" size={15} /></button>
             </div>
           ))}
         </div>
       )}
+      {editar && <EditarCD modo={modo} path={path} item={editar} onClose={() => setEditar(null)} onSaved={() => { setEditar(null); recargar(); }} />}
     </>
+  );
+}
+
+function EditarCD({ modo, path, item, onClose, onSaved }: { modo: 'cobrar' | 'deudas'; path: string; item: ItemCD; onClose: () => void; onSaved: () => void }) {
+  const [desc, setDesc] = useState(item.descripcion);
+  const [quien, setQuien] = useState(item.deudor ?? item.acreedor ?? '');
+  const [monto, setMonto] = useState(String(item.monto));
+  const [fecha, setFecha] = useState(item.fecha);
+  const [error, setError] = useState('');
+
+  async function guardar() {
+    setError('');
+    try {
+      const body: Record<string, unknown> = { descripcion: desc, monto: Number(monto), fecha };
+      body[modo === 'cobrar' ? 'deudor' : 'acreedor'] = quien || null;
+      await api(`${path}/${item.id}`, { method: 'PATCH', body });
+      onSaved();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
+  }
+
+  return (
+    <Modal titulo={modo === 'cobrar' ? 'Editar por cobrar' : 'Editar deuda'} onClose={onClose}>
+      <Field label="Descripción"><input value={desc} onChange={(e) => setDesc(e.target.value)} /></Field>
+      <Field label={modo === 'cobrar' ? 'Deudor' : 'Acreedor'}><input value={quien} onChange={(e) => setQuien(e.target.value)} /></Field>
+      <Field label="Monto (MXN)"><input type="number" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} /></Field>
+      <Field label="Fecha"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
+      {error && <p className="error-msg">{error}</p>}
+      <button className="btn-primary" onClick={guardar} disabled={!desc || !monto}>Guardar</button>
+    </Modal>
   );
 }

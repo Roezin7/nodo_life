@@ -154,6 +154,36 @@ export async function crearMovimiento(m: MovimientoInput) {
   return { id: Number(creado.id) };
 }
 
+export async function editarMovimiento(idMov: bigint, m: MovimientoInput) {
+  const existe = await prisma.movimientos.findUnique({ where: { id: idMov } });
+  if (!existe) throw new HttpError(404, 'Movimiento no encontrado');
+  if (m.monto <= 0) throw new HttpError(400, 'El monto debe ser mayor a cero');
+  if (m.tipo === 'ingreso' && m.cuenta_destino_id == null) throw new HttpError(400, 'El ingreso requiere cuenta destino');
+  if (m.tipo === 'gasto' && m.cuenta_origen_id == null) throw new HttpError(400, 'El gasto requiere cuenta origen');
+  if (m.tipo === 'transferencia' && (m.cuenta_origen_id == null || m.cuenta_destino_id == null)) {
+    throw new HttpError(400, 'La transferencia requiere cuenta origen y destino');
+  }
+  const ids = [m.cuenta_origen_id, m.cuenta_destino_id].filter((x): x is number => x != null);
+  if (ids.length) {
+    const n = await prisma.cuentas.count({ where: { id: { in: ids.map(BigInt) } } });
+    if (n !== new Set(ids).size) throw new HttpError(400, 'Cuenta inválida');
+  }
+  await prisma.movimientos.update({
+    where: { id: idMov },
+    data: {
+      fecha: fechaDate(m.fecha ?? iso(existe.fecha)),
+      tipo: m.tipo,
+      monto: m.monto,
+      cuenta_origen_id: m.cuenta_origen_id != null ? BigInt(m.cuenta_origen_id) : null,
+      cuenta_destino_id: m.cuenta_destino_id != null ? BigInt(m.cuenta_destino_id) : null,
+      categoria_id: m.categoria_id != null ? BigInt(m.categoria_id) : null,
+      area_id: m.area_id != null ? BigInt(m.area_id) : null,
+      descripcion: m.descripcion ?? null,
+    },
+  });
+  return { ok: true };
+}
+
 /** Lista movimientos de un periodo (mes o semana) con filtros opcionales por área/categoría. */
 export async function listarMovimientos(opts: { periodo?: Periodo; ref?: string; area_id?: number; categoria_id?: number } = {}) {
   const { desde, hasta } = rangoPeriodo(opts.periodo ?? 'mes', opts.ref);
@@ -361,10 +391,26 @@ export async function crearPorCobrar(data: { descripcion: string; deudor?: strin
   return { id: Number(f.id) };
 }
 
-export async function actualizarPorCobrar(id: bigint, data: { estado?: 'pendiente' | 'cobrado'; monto?: number }) {
+export async function actualizarPorCobrar(id: bigint, data: { estado?: 'pendiente' | 'cobrado'; monto?: number; descripcion?: string; deudor?: string | null; fecha?: string }) {
   const existe = await prisma.por_cobrar.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Registro no encontrado');
-  await prisma.por_cobrar.update({ where: { id }, data });
+  await prisma.por_cobrar.update({
+    where: { id },
+    data: {
+      estado: data.estado,
+      monto: data.monto,
+      descripcion: data.descripcion,
+      deudor: data.deudor === undefined ? undefined : data.deudor,
+      fecha: data.fecha ? fechaDate(data.fecha) : undefined,
+    },
+  });
+  return { ok: true };
+}
+
+export async function borrarPorCobrar(id: bigint) {
+  const existe = await prisma.por_cobrar.findUnique({ where: { id } });
+  if (!existe) throw new HttpError(404, 'Registro no encontrado');
+  await prisma.por_cobrar.delete({ where: { id } });
   return { ok: true };
 }
 
@@ -380,9 +426,25 @@ export async function crearDeuda(data: { descripcion: string; acreedor?: string;
   return { id: Number(f.id) };
 }
 
-export async function actualizarDeuda(id: bigint, data: { estado?: 'pendiente' | 'pagado'; monto?: number }) {
+export async function actualizarDeuda(id: bigint, data: { estado?: 'pendiente' | 'pagado'; monto?: number; descripcion?: string; acreedor?: string | null; fecha?: string }) {
   const existe = await prisma.deudas.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Registro no encontrado');
-  await prisma.deudas.update({ where: { id }, data });
+  await prisma.deudas.update({
+    where: { id },
+    data: {
+      estado: data.estado,
+      monto: data.monto,
+      descripcion: data.descripcion,
+      acreedor: data.acreedor === undefined ? undefined : data.acreedor,
+      fecha: data.fecha ? fechaDate(data.fecha) : undefined,
+    },
+  });
+  return { ok: true };
+}
+
+export async function borrarDeuda(id: bigint) {
+  const existe = await prisma.deudas.findUnique({ where: { id } });
+  if (!existe) throw new HttpError(404, 'Registro no encontrado');
+  await prisma.deudas.delete({ where: { id } });
   return { ok: true };
 }

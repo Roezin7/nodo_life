@@ -53,6 +53,20 @@ finanzasRouter.post('/movimientos', asyncHandler(async (req, res) => {
   res.status(201).json(await svc.crearMovimiento(b));
 }));
 
+finanzasRouter.patch('/movimientos/:id', asyncHandler(async (req, res) => {
+  const b = z.object({
+    tipo: z.enum(['ingreso', 'gasto', 'transferencia']),
+    monto: z.coerce.number().positive(),
+    fecha: z.string().optional(),
+    cuenta_origen_id: id.nullable().optional(),
+    cuenta_destino_id: id.nullable().optional(),
+    categoria_id: id.nullable().optional(),
+    area_id: id.nullable().optional(),
+    descripcion: z.string().optional(),
+  }).parse(req.body);
+  res.json(await svc.editarMovimiento(BigInt(id.parse(req.params.id)), b));
+}));
+
 finanzasRouter.delete('/movimientos/:id', asyncHandler(async (req, res) => {
   await svc.borrarMovimiento(BigInt(id.parse(req.params.id)));
   res.status(204).end();
@@ -141,8 +155,19 @@ finanzasRouter.post('/por-cobrar', asyncHandler(async (req, res) => {
 }));
 
 finanzasRouter.patch('/por-cobrar/:id', asyncHandler(async (req, res) => {
-  const b = z.object({ estado: z.enum(['pendiente', 'cobrado']).optional(), monto: z.coerce.number().positive().optional() }).parse(req.body);
+  const b = z.object({
+    estado: z.enum(['pendiente', 'cobrado']).optional(),
+    monto: z.coerce.number().positive().optional(),
+    descripcion: z.string().min(1).optional(),
+    deudor: z.string().nullable().optional(),
+    fecha: z.string().optional(),
+  }).parse(req.body);
   res.json(await svc.actualizarPorCobrar(BigInt(id.parse(req.params.id)), b));
+}));
+
+finanzasRouter.delete('/por-cobrar/:id', asyncHandler(async (req, res) => {
+  await svc.borrarPorCobrar(BigInt(id.parse(req.params.id)));
+  res.status(204).end();
 }));
 
 // --- Deudas ---
@@ -161,6 +186,17 @@ finanzasRouter.post('/deudas', asyncHandler(async (req, res) => {
 }));
 
 finanzasRouter.patch('/deudas/:id', asyncHandler(async (req, res) => {
-  const b = z.object({ estado: z.enum(['pendiente', 'pagado']).optional(), monto: z.coerce.number().positive().optional() }).parse(req.body);
+  const b = z.object({
+    estado: z.enum(['pendiente', 'pagado']).optional(),
+    monto: z.coerce.number().positive().optional(),
+    descripcion: z.string().min(1).optional(),
+    acreedor: z.string().nullable().optional(),
+    fecha: z.string().optional(),
+  }).parse(req.body);
   res.json(await svc.actualizarDeuda(BigInt(id.parse(req.params.id)), b));
+}));
+
+finanzasRouter.delete('/deudas/:id', asyncHandler(async (req, res) => {
+  await svc.borrarDeuda(BigInt(id.parse(req.params.id)));
+  res.status(204).end();
 }));
