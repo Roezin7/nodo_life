@@ -43,6 +43,7 @@
   background: var(--surface);
   color: var(--ink);
   width: 100%;
+  min-width: 0;
 }
 .field input:focus, .field select:focus, .field textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
 
@@ -92,9 +93,12 @@
   border-radius: var(--r-card);
   padding: 1rem 1.1rem;
   box-shadow: var(--sh-sm);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
-.card-title { font-family: var(--font-ui); font-weight: 600; margin: 0 0 0.6rem; display: flex; align-items: center; gap: 0.4rem; }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; }
+.card-title { font-family: var(--font-ui); font-weight: 600; margin: 0 0 0.6rem; display: flex; align-items: center; gap: 0.4rem; min-width: 0; overflow-wrap: anywhere; }
+.card-title svg { flex: none; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 0.75rem; }
 .stat-card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -103,10 +107,20 @@
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
+  min-width: 0;
+  overflow: hidden;
 }
-.stat-label { font-size: 0.72rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.03em; }
-.stat-val { font-family: var(--font-mono); font-size: 1.4rem; font-weight: 600; }
-.stat-sub { font-size: 0.78rem; color: var(--ink-2); }
+.stat-label { font-size: 0.72rem; color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.03em; overflow-wrap: anywhere; }
+.stat-val {
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.stat-sub { font-size: 0.78rem; color: var(--ink-2); overflow-wrap: anywhere; }
 
 /* --- Listas --- */
 .row {
@@ -116,16 +130,27 @@
   gap: 0.75rem;
   padding: 0.7rem 0;
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 .row:last-child { border-bottom: none; }
 /* El bloque de texto izquierdo crece y absorbe el espacio sobrante, así los
    elementos de la derecha (monto, acciones) quedan en columnas alineadas. */
 .row-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 auto; }
 .row > .row-title { flex: 1 1 auto; min-width: 0; }
-.row-title { font-weight: 500; }
-.row-sub { font-size: 0.78rem; color: var(--ink-3); }
+.row-title { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.row-sub { font-size: 0.78rem; color: var(--ink-3); min-width: 0; overflow-wrap: anywhere; }
 /* Monto en columna fija a la derecha (tabular, alineado), no empuja a los botones. */
-.row-amount { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; flex: 0 0 auto; min-width: 5.5rem; text-align: right; }
+.row-amount {
+  max-width: 100%;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  flex: 0 1 auto;
+  min-width: min(5.5rem, 100%);
+  text-align: right;
+}
 .pos { color: var(--success); }
 .neg { color: var(--danger); }
 
@@ -134,16 +159,17 @@
 .progress-fill { height: 100%; border-radius: var(--r-pill); transition: width 0.3s ease; }
 
 /* --- Segmented control --- */
-.segmented { display: inline-flex; background: var(--surface-2); border-radius: var(--r-pill); padding: 3px; gap: 2px; flex-wrap: wrap; }
-.seg { border: none; background: none; padding: 0.4rem 0.85rem; border-radius: var(--r-pill); cursor: pointer; font-size: 0.82rem; color: var(--ink-2); font-weight: 500; }
+.segmented { display: inline-flex; max-width: 100%; background: var(--surface-2); border-radius: var(--r-pill); padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg { border: none; background: none; padding: 0.4rem 0.85rem; border-radius: var(--r-pill); cursor: pointer; font-size: 0.82rem; color: var(--ink-2); font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .seg--on { background: var(--surface); color: var(--ink); box-shadow: var(--sh-sm); }
 
 /* --- Área chips --- */
-.area-chip { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.78rem; color: var(--ink-2); }
+.area-chip { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; font-size: 0.78rem; color: var(--ink-2); }
+.area-chip span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .area-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
 
 /* --- Dashboard grid --- */
-.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.9rem; }
+.dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 0.9rem; }
 .linechart { display: block; }
 
 /* --- Hábitos tracker --- */
@@ -185,8 +211,8 @@
   padding: 0.7rem; display: flex; flex-direction: column; gap: 0.5rem; scroll-snap-align: start;
 }
 .board-col-head { display: flex; align-items: flex-start; gap: 0.4rem; }
-.board-col-title { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; }
-.board-count { font-size: 0.7rem; color: var(--ink-3); background: var(--surface); border-radius: var(--r-pill); padding: 0 0.4rem; }
+.board-col-title { display: flex; align-items: center; gap: 0.4rem; min-width: 0; font-size: 0.9rem; overflow-wrap: anywhere; }
+.board-count { flex: none; font-size: 0.7rem; color: var(--ink-3); background: var(--surface); border-radius: var(--r-pill); padding: 0 0.4rem; }
 .board-col-sub { font-size: 0.7rem; color: var(--ink-3); margin-top: 0.25rem; display: flex; flex-direction: column; gap: 0.2rem; }
 .board-col-body { display: flex; flex-direction: column; gap: 0.45rem; min-height: 8px; }
 .board-empty { font-size: 0.78rem; color: var(--ink-3); text-align: center; padding: 0.6rem 0; }
@@ -215,6 +241,63 @@
 .aviso { background: var(--info-bg); color: var(--info); padding: 0.6rem 0.85rem; border-radius: var(--r-input); font-size: 0.85rem; margin-bottom: 0.75rem; }
 .section-gap { margin-top: 1.4rem; }
 
+/* Contención visual global para textos largos, importes y navegación. */
+.shell,
+.main-area,
+.content,
+.page,
+.tab-body,
+.modal-card,
+.ob-card {
+  min-width: 0;
+}
+.page-title,
+.page-head,
+.ctx-left,
+.ctx-right,
+.nav-link,
+.bottom-link,
+.more-link,
+.btn-row,
+.captura-bar {
+  min-width: 0;
+}
+.page-title h1,
+.ctx-negocio,
+.ctx-user,
+.ctx-chip,
+.nav-link span,
+.bottom-link span,
+.more-link span,
+.pill,
+.btn-primary,
+.btn-ghost,
+.btn,
+.btn-secondary,
+.btn-danger,
+.aviso,
+.hoy-nudge,
+.ob-title,
+.ob-lead {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.page-title svg,
+.nav-link svg,
+.bottom-link svg,
+.more-link svg,
+.ctx-chip .dot-status {
+  flex: none;
+}
+.bottom-link span,
+.more-link span,
+.nav-link span {
+  min-width: 0;
+}
+.ctx-right {
+  justify-content: flex-end;
+}
+
 /* ---------- Responsive: teléfono (iPhone 17 Pro) ---------- */
 @media (max-width: 480px) {
   /* Más aire táctil y que nada se desborde en columna estrecha. */
@@ -226,6 +309,30 @@
   .seg { flex: 1; text-align: center; }
   /* Acciones del header de página no se encogen. */
   .page-head { align-items: center; }
+  .stat-card { padding: 0.8rem 0.85rem; }
+  .stat-val { font-size: 1.18rem; }
+  .row { align-items: flex-start; gap: 0.45rem 0.6rem; }
+  .row-main { flex-basis: 100%; }
+  .row-amount { min-width: 0; text-align: left; }
+  .hero { align-items: flex-start; padding: 1rem; }
+  .hero-anillo { transform: scale(0.9); transform-origin: top right; }
+  .page-head { flex-wrap: wrap; gap: 0.7rem; }
+  .page-head > .btn-primary,
+  .page-head > .btn,
+  .page-head > .btn-secondary,
+  .page-head > .btn-ghost,
+  .page-head > .btn-danger {
+    max-width: 100%;
+  }
+  .context-bar { gap: 0.5rem; }
+  .ctx-left { flex-direction: column; align-items: flex-start; gap: 0.05rem; }
+  .ctx-chip { padding: 0.28rem 0.5rem; }
+  .more-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .bottom-link span,
+  .more-link span {
+    text-align: center;
+    line-height: 1.15;
+  }
 }
 
 /* ---------- Responsive: iPad Pro y pantallas grandes ---------- */
@@ -253,6 +360,7 @@
 /* Filtro por área (chips) — columna vertebral de áreas visible en la UI. */
 .area-filtro {
   display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem;
+  max-width: 100%;
 }
 .area-chip-btn {
   display: inline-flex; align-items: center; gap: 0.4rem;
@@ -260,6 +368,9 @@
   padding: 0.4rem 0.8rem; border-radius: var(--r-pill);
   font-family: var(--font-ui); font-weight: 600; font-size: 0.8rem;
   min-height: 38px; transition: background 0.14s, color 0.14s, border-color 0.14s;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .area-chip-btn--on { background: var(--ink); border-color: var(--ink); color: var(--on-primary); }
 
@@ -274,8 +385,9 @@
   border: 1px solid var(--border);
   box-shadow: var(--sh-sm);
 }
+.hero > div:first-child { min-width: 0; }
 .hero-saludo { font-family: var(--font-ui); font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
-.hero-fecha { color: var(--ink-3); font-size: 0.85rem; text-transform: capitalize; margin: 0.15rem 0 0; }
+.hero-fecha { color: var(--ink-3); font-size: 0.85rem; text-transform: capitalize; margin: 0.15rem 0 0; overflow-wrap: anywhere; }
 .hero-anillo { flex: 0 0 auto; margin-left: auto; }
 
 /* Onboarding de primer uso. */
