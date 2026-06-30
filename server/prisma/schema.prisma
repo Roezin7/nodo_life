@@ -219,6 +219,25 @@ model snapshots_patrimonio {
   @@unique([fecha])
 }
 
+enum CategoriaActivoFisico {
+  inmueble
+  vehiculo
+  otro
+}
+
+// Activos físicos NO líquidos (casa, carro, terreno…). Suman al patrimonio neto
+// pero quedan fuera del flujo de efectivo (cuentas/movimientos).
+model activos_fisicos {
+  id              BigInt                @id @default(autoincrement())
+  nombre          String
+  categoria       CategoriaActivoFisico @default(otro)
+  valor           Decimal               @db.Decimal(14, 2)
+  nota            String?
+  fecha_valuacion DateTime              @db.Date
+  activo          Boolean               @default(true)
+  creado_at       DateTime              @default(now()) @db.Timestamptz(6)
+}
+
 // ===========================================================================
 //  SALUD / FITNESS (área Salud) — Fase 4
 // ===========================================================================

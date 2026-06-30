@@ -32,3 +32,39 @@ patrimonioRouter.delete('/snapshots/:id', asyncHandler(async (req, res) => {
   await svc.borrarSnapshot(BigInt(id.parse(req.params.id)));
   res.status(204).end();
 }));
+
+// --- Activos físicos no líquidos (casa, carro…) ---
+const categoria = z.enum(['inmueble', 'vehiculo', 'otro']);
+const fecha = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+patrimonioRouter.get('/activos', asyncHandler(async (_req, res) => {
+  res.json(await svc.listarActivosFisicos());
+}));
+
+patrimonioRouter.post('/activos', asyncHandler(async (req, res) => {
+  const b = z.object({
+    nombre: z.string().min(1),
+    categoria: categoria.optional(),
+    valor: z.number().nonnegative(),
+    nota: z.string().optional(),
+    fecha_valuacion: fecha.optional(),
+  }).parse(req.body);
+  res.status(201).json(await svc.crearActivoFisico(b));
+}));
+
+patrimonioRouter.patch('/activos/:id', asyncHandler(async (req, res) => {
+  const b = z.object({
+    nombre: z.string().min(1).optional(),
+    categoria: categoria.optional(),
+    valor: z.number().nonnegative().optional(),
+    nota: z.string().nullable().optional(),
+    fecha_valuacion: fecha.optional(),
+    activo: z.boolean().optional(),
+  }).parse(req.body);
+  res.json(await svc.editarActivoFisico(BigInt(id.parse(req.params.id)), b));
+}));
+
+patrimonioRouter.delete('/activos/:id', asyncHandler(async (req, res) => {
+  await svc.borrarActivoFisico(BigInt(id.parse(req.params.id)));
+  res.status(204).end();
+}));
