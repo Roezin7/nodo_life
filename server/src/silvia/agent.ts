@@ -55,6 +55,50 @@ export interface RespuestaSilvia {
   aprendizajes: string[];
 }
 
+/**
+ * Genera el resumen de una revisión (ritual diario/semanal) con los datos reales.
+ * No es conversación: una sola pasada, sin historial ni herramientas. Devuelve Markdown.
+ */
+export async function resumenRevision(tipo: 'diaria' | 'semanal'): Promise<string> {
+  const cli = client();
+  const [contexto, memoriaRows] = await Promise.all([
+    contextoVida(),
+    prisma.silvia_memoria.findMany({ orderBy: { id: 'desc' }, take: 30 }),
+  ]);
+  const memoriaTxt = memoriaRows
+    .reverse()
+    .map((m) => `- [${m.tipo}${m.fecha ? ' ' + m.fecha.toISOString().slice(0, 10) : ''}] ${m.contenido}`)
+    .join('\n');
+
+  const instruccion = tipo === 'semanal'
+    ? 'Haz mi **cierre semanal** con mis números reales. Estructura breve en Markdown:\n' +
+      '1. **Cómo me fue** — finanzas y hábitos primero, con las cifras.\n' +
+      '2. **Avance vs objetivos** — qué se movió y qué se estancó.\n' +
+      '3. **1–3 acciones** para la próxima semana, cada una con su porqué basado en los datos.\n' +
+      'Sin saludos ni relleno. Si algo falta, dilo.'
+    : 'Haz mi **repaso del día**: en qué enfocarme hoy y un solo foco principal. ' +
+      'Máximo 4–5 viñetas, basadas en mis números y pendientes. Sin saludos.';
+
+  try {
+    const resp = await cli.messages.create({
+      model: MODELO,
+      max_tokens: 2000,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'medium' },
+      system: systemPrompt(contexto, memoriaTxt),
+      messages: [{ role: 'user', content: instruccion }],
+    });
+    const texto = resp.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+    return texto || 'No pude generar el resumen esta vez.';
+  } catch (e) {
+    throw traducirError(e);
+  }
+}
+
 export async function conversar(mensajeUsuario: string): Promise<RespuestaSilvia> {
   const cli = client();
 

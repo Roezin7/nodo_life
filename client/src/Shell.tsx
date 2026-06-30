@@ -21,6 +21,7 @@ const ITEMS: Item[] = [
   { ruta: '/habitos', label: 'Hábitos', icono: 'repeat' },
   { ruta: '/tareas', label: 'Tareas', icono: 'checks' },
   { ruta: '/objetivos', label: 'Objetivos', icono: 'target' },
+  { ruta: '/revisiones', label: 'Revisiones', icono: 'calendar' },
   { ruta: '/configuracion', label: 'Configuración', icono: 'settings' },
 ];
 

@@ -18,7 +18,6 @@ export default function Configuracion() {
       <PresupuestosCfg />
       <Ajustes />
       <Recordatorios />
-      <Revisiones />
     </Page>
   );
 }
@@ -255,27 +254,3 @@ function Recordatorios() {
   );
 }
 
-interface Rev { id: number; tipo: string; fecha: string; notas: string | null }
-function Revisiones() {
-  const [revs, recargar] = useCargar<Rev[]>(() => api<Rev[]>('/revisiones'));
-  const [notas, setNotas] = useState('');
-  const [tipo, setTipo] = useState<'diaria' | 'semanal'>('diaria');
-  const [msg, setMsg] = useState('');
-  async function crear() {
-    const r = await api<{ snapshot_generado: boolean }>('/revisiones', { method: 'POST', body: { tipo, notas: notas || undefined } });
-    setNotas(''); setMsg(r.snapshot_generado ? 'Revisión guardada + snapshot de patrimonio generado.' : 'Revisión guardada.'); recargar();
-  }
-  return (
-    <Seccion titulo="Revisiones (ritual diario / semanal)">
-      <Field label="Tipo"><select value={tipo} onChange={(e) => setTipo(e.target.value as 'diaria' | 'semanal')}><option value="diaria">Diaria</option><option value="semanal">Semanal (dispara snapshots)</option></select></Field>
-      <Field label="Notas"><textarea rows={3} value={notas} onChange={(e) => setNotas(e.target.value)} /></Field>
-      <button className="btn-ghost" onClick={crear}>Guardar revisión</button>
-      {msg && <p className="row-sub">{msg}</p>}
-      <div className="section-gap">
-        {(revs ?? []).slice(0, 8).map((r) => (
-          <div key={r.id} className="row"><span className="row-title">{r.fecha} · {r.tipo}</span><span className="row-sub" style={{ flex: 1, textAlign: 'right' }}>{r.notas?.slice(0, 40)}</span></div>
-        ))}
-      </div>
-    </Seccion>
-  );
-}

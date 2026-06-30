@@ -3,6 +3,7 @@ import { HttpError } from '../middleware/error.js';
 import { iso, fechaDate, hoyMX } from '../lib/fecha.js';
 import { generarSnapshot } from '../patrimonio/service.js';
 import { recalcular as recalcularObjetivos } from '../objetivos/service.js';
+import { silviaDisponible, resumenRevision } from '../silvia/agent.js';
 
 export async function listar(tipo?: 'diaria' | 'semanal') {
   const revs = await prisma.revisiones.findMany({
@@ -38,6 +39,15 @@ export async function crear(data: { tipo: 'diaria' | 'semanal'; fecha?: string; 
     await recalcularObjetivos();
   }
   return { id: Number(rev.id), snapshot_generado: data.tipo === 'semanal' };
+}
+
+/** Genera el resumen de Silvia para una revisión, sin persistirlo (vista previa editable). */
+export async function generarResumen(tipo: 'diaria' | 'semanal') {
+  if (!silviaDisponible()) {
+    throw new HttpError(503, 'Silvia no está configurada: falta ANTHROPIC_API_KEY en el servidor.');
+  }
+  const texto = await resumenRevision(tipo);
+  return { texto };
 }
 
 export async function borrar(id: bigint) {

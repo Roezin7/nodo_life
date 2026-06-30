@@ -24,6 +24,12 @@ revisionesRouter.post('/', asyncHandler(async (req, res) => {
   res.status(201).json(await svc.crear(b));
 }));
 
+/** Genera el resumen de Silvia para una revisión (no lo guarda; el front lo confirma). */
+revisionesRouter.post('/resumen', asyncHandler(async (req, res) => {
+  const { tipo } = z.object({ tipo: z.enum(['diaria', 'semanal']) }).parse(req.body);
+  res.json(await svc.generarResumen(tipo));
+}));
+
 revisionesRouter.delete('/:id', asyncHandler(async (req, res) => {
   await svc.borrar(BigInt(id.parse(req.params.id)));
   res.status(204).end();

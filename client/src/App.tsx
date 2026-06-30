@@ -10,6 +10,7 @@ import Salud from './screens/Salud';
 import Habitos from './screens/Habitos';
 import Tareas from './screens/Tareas';
 import Objetivos from './screens/Objetivos';
+import Revisiones from './screens/Revisiones';
 import Configuracion from './screens/Configuracion';
 import OfflineBanner from './OfflineBanner';
 import SilviaBubble from './silvia/SilviaBubble';
@@ -40,6 +41,7 @@ function AppBody() {
         <Route path="/habitos" element={<Habitos />} />
         <Route path="/tareas" element={<Tareas />} />
         <Route path="/objetivos" element={<Objetivos />} />
+        <Route path="/revisiones" element={<Revisiones />} />
         <Route path="/configuracion" element={<Configuracion />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
