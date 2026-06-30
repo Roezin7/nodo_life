@@ -11,7 +11,7 @@ interface Dash {
   mes: string;
   resumen: { ingresos: number; gastos: number; flujo: number; tasa_ahorro: number };
   saldos: { cuenta_id: number; nombre: string; saldo: number }[];
-  total_liquido: number; por_cobrar: number; deudas: number; patrimonio_liquido: number;
+  total_liquido: number; por_cobrar: number; deudas: number; inversiones: number; patrimonio_liquido: number; capital_proyectado: number;
   gasto_por_categoria: { categoria_id: number; nombre: string; monto: number }[];
   presupuestos: { id: number; etiqueta: string; gastado: number; limite: number; ratio: number; nivel: string }[];
 }
@@ -106,6 +106,7 @@ function ResumenBody({ d }: { d: Dash }) {
         <Stat label="Tasa de ahorro" valor={pct(d.resumen.tasa_ahorro)} />
         <Stat label="Líquido total" valor={mxn(d.total_liquido)} />
         <Stat label="Patrimonio líquido" valor={mxn(d.patrimonio_liquido)} sub={`+ inversiones en Patrimonio`} />
+        <Stat label="Capital proyectado" valor={mxn(d.capital_proyectado)} sub={`Efectivo + por cobrar − deudas + inversiones ${mxn(d.inversiones)}`} color="var(--success)" />
       </div>
 
       <div className="card section-gap">

@@ -3,6 +3,7 @@ import { prisma } from '../db.js';
 import { num0 } from '../lib/num.js';
 import { HttpError } from '../middleware/error.js';
 import { fechaDate, iso, hoyMX, lunesDe } from '../lib/fecha.js';
+import { valorPortafolioMXN } from '../inversiones/service.js';
 import {
   redondear,
   saldosPorCuenta,
@@ -193,13 +194,14 @@ export async function dashboard(opts: { periodo?: Periodo; ref?: string } = {}) 
   const rango = rangoPeriodo(periodo, opts.ref);
   const { desde, hasta } = rango;
 
-  const [movs, presupuestos, categorias, areas, saldos, cobrarDeudas] = await Promise.all([
+  const [movs, presupuestos, categorias, areas, saldos, cobrarDeudas, inversiones] = await Promise.all([
     prisma.movimientos.findMany({ where: { fecha: { gte: desde, lt: hasta } } }),
     prisma.presupuestos.findMany(),
     prisma.categorias.findMany({ where: { activo: true } }),
     prisma.areas.findMany({ where: { activo: true }, orderBy: { orden: 'asc' } }),
     saldosActuales(),
     totalesCobrarDeudas(),
+    valorPortafolioMXN().catch(() => 0), // las inversiones dependen de red; no deben tumbar el dashboard
   ]);
 
   const ingresos = redondear(movs.filter((m) => m.tipo === 'ingreso').reduce((a, m) => a + num0(m.monto), 0));
@@ -245,8 +247,11 @@ export async function dashboard(opts: { periodo?: Periodo; ref?: string } = {}) 
     total_liquido,
     por_cobrar: cobrarDeudas.por_cobrar,
     deudas: cobrarDeudas.deudas,
+    inversiones,
     // patrimonio neto "líquido" (sin inversiones): el módulo Patrimonio agrega la valuación.
     patrimonio_liquido: redondear(total_liquido + cobrarDeudas.por_cobrar - cobrarDeudas.deudas),
+    // capital proyectado: efectivo + flujo futuro por cobrar − deudas futuras + inversiones (excluye activos físicos).
+    capital_proyectado: redondear(total_liquido + cobrarDeudas.por_cobrar - cobrarDeudas.deudas + inversiones),
     gasto_por_categoria: [...gastoPorCategoria.entries()].map(([id, monto]) => ({ categoria_id: id, nombre: catNombre.get(id) ?? '—', monto })),
     gasto_por_area: areas.map((a) => ({ area_id: Number(a.id), nombre: a.nombre, color: a.color, monto: gastoPorArea.get(Number(a.id)) ?? 0 })),
     presupuestos: presupuestoEstado,
