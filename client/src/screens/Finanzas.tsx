@@ -282,7 +282,7 @@ function CobrarDeudas({ modo }: { modo: 'cobrar' | 'deudas' }) {
                 <span className="row-sub">{it.deudor ?? it.acreedor ?? ''} · {it.fecha}</span>
               </div>
               <span className="row-amount">{mxn(it.monto)}</span>
-              <button className="pill" onClick={() => marcar(it)}>{it.estado === 'pendiente' ? 'Marcar' : '↩'}</button>
+              <button className="pill" style={{ minWidth: '5rem' }} onClick={() => marcar(it)}>{it.estado === 'pendiente' ? 'Marcar' : '↩'}</button>
               <button className="icon-btn" onClick={() => setEditar(it)} aria-label="Editar"><Icono name="edit" size={15} /></button>
               <button className="icon-btn" onClick={() => borrar(it)} aria-label="Borrar"><Icono name="trash" size={15} /></button>
             </div>

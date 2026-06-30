@@ -118,10 +118,14 @@
   border-bottom: 1px solid var(--border);
 }
 .row:last-child { border-bottom: none; }
-.row-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+/* El bloque de texto izquierdo crece y absorbe el espacio sobrante, así los
+   elementos de la derecha (monto, acciones) quedan en columnas alineadas. */
+.row-main { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1 1 auto; }
+.row > .row-title { flex: 1 1 auto; min-width: 0; }
 .row-title { font-weight: 500; }
 .row-sub { font-size: 0.78rem; color: var(--ink-3); }
-.row-amount { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; }
+/* Monto en columna fija a la derecha (tabular, alineado), no empuja a los botones. */
+.row-amount { font-family: var(--font-mono); font-weight: 600; white-space: nowrap; flex: 0 0 auto; min-width: 5.5rem; text-align: right; }
 .pos { color: var(--success); }
 .neg { color: var(--danger); }
 
