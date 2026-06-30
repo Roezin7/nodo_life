@@ -45,6 +45,22 @@ model config {
   valor String
 }
 
+// Suscripciones Web Push (un registro por dispositivo). Alimentan los recordatorios.
+model push_suscripciones {
+  id        BigInt   @id @default(autoincrement())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  creado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+// Marca de recordatorios ya enviados, para no repetir el mismo aviso el mismo día.
+// clave ej.: "peso:2026-06-30", "habito:5:2026-06-30", "tareas:2026-06-30".
+model recordatorios_enviados {
+  clave     String   @id
+  creado_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
 // ===========================================================================
 //  FINANZAS PERSONALES (área Dinero) — Fase 1
 // ===========================================================================

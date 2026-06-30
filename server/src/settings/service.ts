@@ -4,6 +4,7 @@ import { prisma } from '../db.js';
 export const DEFAULTS: Record<string, string> = {
   snapshot_cadencia_dias: '7', // patrimonio: cada cuántos días sugerir snapshot
   peso_recordatorio_hora: '07:30', // recordatorio diario de pesarse
+  tareas_recordatorio_hora: '08:00', // resumen diario de tareas que vencen hoy
   fx_par: 'USD/MXN',
 };
 

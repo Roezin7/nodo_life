@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { api, mxn, pct } from '../api';
 import { Icono } from '../icons';
 import { Page, useCargar, Stat, Progress, Vacio, LineChart } from '../ui';
@@ -13,13 +14,48 @@ interface Dash {
 }
 
 export default function Home() {
-  const [d, , cargando, error] = useCargar<Dash>(() => api<Dash>('/dashboard'));
+  const [d, recargar, cargando, error] = useCargar<Dash>(() => api<Dash>('/dashboard'));
+  const [ocupado, setOcupado] = useState(false);
+  const [peso, setPeso] = useState('');
+
+  // Una acción a la vez: evita doble-toque y condiciones de carrera al recargar.
+  async function accion(fn: () => Promise<unknown>) {
+    if (ocupado) return;
+    setOcupado(true);
+    try { await fn(); recargar(); } finally { setOcupado(false); }
+  }
+
+  async function toggleHabito(h: Dash['habitos']['lista'][number]) {
+    if (!d) return;
+    if (h.hecho_hoy) await api(`/habitos/${h.id}/registro?fecha=${d.fecha}`, { method: 'DELETE' });
+    else await api(`/habitos/${h.id}/registro`, { method: 'POST', body: { fecha: d.fecha, completado: true } });
+  }
+  async function completarTarea(id: number) {
+    await api(`/tareas/${id}`, { method: 'PATCH', body: { estado: 'hecha' } });
+  }
+  async function registrarPeso() {
+    if (!peso) return;
+    await api('/salud/peso', { method: 'POST', body: { peso: Number(peso) } });
+    setPeso('');
+  }
 
   if (error) return <Page titulo="Inicio" icono="home"><p className="error-msg">{error}</p></Page>;
   if (cargando || !d) return <Page titulo="Inicio" icono="home"><p className="muted">Cargando…</p></Page>;
 
+  const pesoHoy = d.peso.ultimo?.fecha === d.fecha;
+  const habitosPend = d.habitos.total - d.habitos.hechos_hoy;
+  const pendientes: string[] = [];
+  if (!pesoHoy) pendientes.push('pesarte');
+  if (habitosPend > 0) pendientes.push(`${habitosPend} hábito${habitosPend > 1 ? 's' : ''}`);
+  if (d.tareas_hoy.length > 0) pendientes.push(`${d.tareas_hoy.length} tarea${d.tareas_hoy.length > 1 ? 's' : ''}`);
+
   return (
     <Page titulo="Inicio" icono="home">
+      <div className={`hoy-nudge ${pendientes.length === 0 ? 'hoy-nudge--ok' : ''}`}>
+        <Icono name={pendientes.length === 0 ? 'checks' : 'sparkles'} size={18} />
+        <span>{pendientes.length === 0 ? 'Todo al día por hoy. 🎉' : <>Hoy te falta: <strong>{pendientes.join(' · ')}</strong></>}</span>
+      </div>
+
       <div className="stat-grid" style={{ marginBottom: '1rem' }}>
         <Stat label="Patrimonio neto" valor={mxn(d.patrimonio.neto)} sub={`Activos ${mxn(d.patrimonio.activos)} · Pasivos ${mxn(d.patrimonio.pasivos)}`} />
         <Stat label="Portafolio" valor={d.patrimonio.portafolio_mxn != null ? mxn(d.patrimonio.portafolio_mxn) : '—'} sub={d.patrimonio.portafolio_pnl != null ? `P&L ${mxn(d.patrimonio.portafolio_pnl)}` : 'sin valuar'} color={d.patrimonio.portafolio_pnl != null && d.patrimonio.portafolio_pnl >= 0 ? 'var(--success)' : 'var(--danger)'} />
@@ -29,13 +65,14 @@ export default function Home() {
 
       <div className="dash-grid">
         <div className="card">
-          <p className="card-title"><Icono name="repeat" size={18} /> Hábitos de hoy</p>
+          <p className="card-title"><Icono name="repeat" size={18} /> Hábitos de hoy <span className="board-count">{d.habitos.hechos_hoy}/{d.habitos.total}</span></p>
           {d.habitos.lista.length === 0 ? <Vacio texto="Sin hábitos. Crea uno en Hábitos." /> : (
             <div>
               {d.habitos.lista.map((h) => (
                 <div key={h.id} className="row">
-                  <div className="area-chip"><span className="area-dot" style={{ background: h.area_color }} /> {h.nombre}</div>
-                  <span className="row-sub">{h.hecho_hoy ? '✓ hecho' : '—'}{h.racha > 0 ? ` · 🔥${h.racha}` : ''}</span>
+                  <button className={`check ${h.hecho_hoy ? 'check--on' : ''}`} disabled={ocupado} onClick={() => accion(() => toggleHabito(h))} aria-label={h.hecho_hoy ? 'Desmarcar' : 'Marcar hecho'}><Icono name="checks" size={11} /></button>
+                  <div className="area-chip" style={{ flex: 1, minWidth: 0 }}><span className="area-dot" style={{ background: h.area_color }} /> {h.nombre}</div>
+                  <span className="row-sub">{h.racha > 0 ? `🔥${h.racha}` : ''}</span>
                 </div>
               ))}
             </div>
@@ -48,7 +85,8 @@ export default function Home() {
             <div>
               {d.tareas_hoy.map((t) => (
                 <div key={t.id} className="row">
-                  <span className="row-title">{t.titulo}</span>
+                  <button className="check" disabled={ocupado} onClick={() => accion(() => completarTarea(t.id))} aria-label="Completar"><Icono name="checks" size={11} /></button>
+                  <span className="row-title" style={{ flex: 1, minWidth: 0 }}>{t.prioridad === 'alta' && <span className="prio-alta" title="Prioridad alta">●</span>} {t.titulo}</span>
                   <span className="row-sub">{t.prioridad}</span>
                 </div>
               ))}
@@ -58,8 +96,14 @@ export default function Home() {
 
         <div className="card">
           <p className="card-title"><Icono name="scale" size={18} /> Tendencia de peso</p>
+          {!pesoHoy && (
+            <div className="captura-bar" style={{ marginBottom: '0.75rem' }}>
+              <input type="number" inputMode="decimal" placeholder="Peso de hoy (kg)" value={peso} onChange={(e) => setPeso(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') accion(registrarPeso); }} />
+              <button className="btn-primary" disabled={ocupado || !peso} onClick={() => accion(registrarPeso)}>Registrar</button>
+            </div>
+          )}
           <LineChart points={d.peso.serie.map((p) => p.peso)} segunda={d.peso.serie.map((p) => p.media_movil)} color="var(--data-azulejo)" />
-          <p className="row-sub">Línea sólida = peso diario · punteada = media móvil 7 días</p>
+          <p className="row-sub">{pesoHoy ? '✓ Ya registraste tu peso hoy. ' : ''}Línea sólida = peso diario · punteada = media móvil 7 días</p>
         </div>
 
         <div className="card">

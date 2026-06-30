@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api, mxn } from '../api';
 import { useAuth } from '../auth';
 import { Page, useCargar, Field, Vacio, Modal } from '../ui';
 import { Icono } from '../icons';
+import { pushSoportado, permisoActual, estaSuscrito, activarPush, desactivarPush, probarPush } from '../push';
 
 interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; saldo_inicial: number; saldo: number }
 interface Ref { tipos_cuenta: { id: number; nombre: string }[]; cuentas: Cuenta[]; categorias: { id: number; nombre: string; clase: string; area_id: number | null }[] }
@@ -16,6 +17,7 @@ export default function Configuracion() {
       <CategoriasCfg />
       <PresupuestosCfg />
       <Ajustes />
+      <Recordatorios />
       <Revisiones />
     </Page>
   );
@@ -168,12 +170,14 @@ function Ajustes() {
   const [cfg, recargar] = useCargar<Record<string, string>>(() => api('/settings'));
   const [cad, setCad] = useState('');
   const [hora, setHora] = useState('');
+  const [horaTareas, setHoraTareas] = useState('');
   async function guardar() {
     const body: Record<string, string> = {};
     if (cad) body.snapshot_cadencia_dias = cad;
     if (hora) body.peso_recordatorio_hora = hora;
+    if (horaTareas) body.tareas_recordatorio_hora = horaTareas;
     await api('/settings', { method: 'PUT', body });
-    setCad(''); setHora(''); recargar();
+    setCad(''); setHora(''); setHoraTareas(''); recargar();
   }
   return (
     <Seccion titulo="Ajustes">
@@ -183,7 +187,70 @@ function Ajustes() {
       <Field label={`Hora del recordatorio de peso — actual: ${cfg?.peso_recordatorio_hora ?? '07:30'}`}>
         <input type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
       </Field>
+      <Field label={`Hora del resumen de tareas del día — actual: ${cfg?.tareas_recordatorio_hora ?? '08:00'}`}>
+        <input type="time" value={horaTareas} onChange={(e) => setHoraTareas(e.target.value)} />
+      </Field>
       <button className="btn-ghost" onClick={guardar}>Guardar ajustes</button>
+    </Seccion>
+  );
+}
+
+function Recordatorios() {
+  const soportado = pushSoportado();
+  const [permiso, setPermiso] = useState<NotificationPermission>(permisoActual());
+  const [suscrito, setSuscrito] = useState(false);
+  const [ocupado, setOcupado] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (soportado) estaSuscrito().then(setSuscrito).catch(() => {});
+  }, [soportado]);
+
+  async function activar() {
+    setOcupado(true); setError(''); setMsg('');
+    try { await activarPush(); setSuscrito(true); setPermiso(permisoActual()); setMsg('Listo. Te llegarán recordatorios en este dispositivo.'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'No pude activar los recordatorios.'); }
+    finally { setOcupado(false); }
+  }
+  async function desactivar() {
+    setOcupado(true); setError(''); setMsg('');
+    try { await desactivarPush(); setSuscrito(false); setMsg('Recordatorios desactivados en este dispositivo.'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Error.'); }
+    finally { setOcupado(false); }
+  }
+  async function probar() {
+    setOcupado(true); setError(''); setMsg('');
+    try { const n = await probarPush(); setMsg(n > 0 ? `Notificación de prueba enviada (${n} dispositivo${n > 1 ? 's' : ''}).` : 'No hay dispositivos suscritos todavía.'); }
+    catch (e) { setError(e instanceof Error ? e.message : 'Error al enviar la prueba.'); }
+    finally { setOcupado(false); }
+  }
+
+  return (
+    <Seccion titulo="Recordatorios">
+      {!soportado ? (
+        <p className="row-sub">Este navegador no soporta notificaciones push. En iPhone, primero instala Nodo Vida en la pantalla de inicio (Compartir → “Agregar a inicio”) y ábrela desde ahí.</p>
+      ) : (
+        <>
+          <p className="row-sub" style={{ marginBottom: '0.6rem' }}>
+            Avisos de peso, hábitos con hora y el resumen de tareas del día. Las horas se ajustan arriba, en <strong>Ajustes</strong>.
+          </p>
+          <div className="btn-row" style={{ alignItems: 'center' }}>
+            {!suscrito ? (
+              <button className="btn-primary" onClick={activar} disabled={ocupado}><Icono name="sparkles" size={15} /> Activar en este dispositivo</button>
+            ) : (
+              <>
+                <span className="pill" style={{ color: 'var(--success)' }}>● Activos</span>
+                <button className="btn-ghost" onClick={probar} disabled={ocupado}>Enviar prueba</button>
+                <button className="btn-ghost" onClick={desactivar} disabled={ocupado}>Desactivar</button>
+              </>
+            )}
+          </div>
+          {permiso === 'denied' && <p className="row-sub" style={{ color: 'var(--danger)' }}>Bloqueaste las notificaciones para este sitio. Actívalas desde los ajustes del navegador.</p>}
+          {msg && <p className="row-sub">{msg}</p>}
+          {error && <p className="error-msg">{error}</p>}
+        </>
+      )}
     </Seccion>
   );
 }

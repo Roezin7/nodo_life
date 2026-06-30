@@ -14,6 +14,16 @@ export function hoyMX(): string {
   }).format(new Date());
 }
 
+/** Hora actual en México como 'HH:MM' (24h). Para el scheduler de recordatorios. */
+export function horaMX(): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+}
+
 /** 'YYYY-MM-DD' -> Date a medianoche UTC (para columnas @db.Date). */
 export function fechaDate(iso: string): Date {
   return new Date(iso + 'T00:00:00Z');

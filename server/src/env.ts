@@ -11,6 +11,11 @@ const schema = z.object({
   FINNHUB_API_KEY: z.string().optional().default(''),
   // Orígenes permitidos para CORS, separados por coma. Vacío = solo mismo origen.
   ALLOWED_ORIGINS: z.string().optional().default(''),
+  // Web Push (recordatorios). Genera el par con `npx web-push generate-vapid-keys`.
+  // Vacío = los recordatorios push quedan deshabilitados (la app sigue funcionando).
+  VAPID_PUBLIC_KEY: z.string().optional().default(''),
+  VAPID_PRIVATE_KEY: z.string().optional().default(''),
+  VAPID_SUBJECT: z.string().optional().default('mailto:nodo@vida.app'),
 });
 
 const parsed = schema.safeParse(process.env);
