@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { openDB, type IDBPDatabase } from 'idb';
+import { notificarMutacion } from './api';
 
 // Cola de escrituras offline. Cuando no hay red, las mutaciones (POST/PATCH/PUT/DELETE)
 // se encolan en IndexedDB y se reenvían al recuperar conexión (FIFO). Las lecturas (GET)
@@ -73,6 +74,7 @@ export async function sincronizar(): Promise<void> {
   try {
     const d = await db();
     let keys = await d.getAllKeys(STORE);
+    let huboEnvio = false;
     for (const key of keys) {
       const req = (await d.get(STORE, key)) as PendingReq | undefined;
       if (!req) continue;
@@ -96,6 +98,7 @@ export async function sincronizar(): Promise<void> {
           fallidos.push({ method: req.method, path: req.path, error: (data as { error?: string }).error ?? `Error ${res.status}`, ts: Date.now() });
         }
         await d.delete(STORE, key);
+        huboEnvio = true;
       } catch {
         // Sin red: cortamos y reintentaremos luego.
         break;
@@ -103,6 +106,8 @@ export async function sincronizar(): Promise<void> {
     }
     keys = await d.getAllKeys(STORE);
     void notificar();
+    // Datos del servidor cambiaron: refresca todas las vistas cargadas.
+    if (huboEnvio) notificarMutacion();
   } finally {
     sincronizando = false;
   }

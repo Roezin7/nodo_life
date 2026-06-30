@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Icono } from './icons';
+import { onMutacion } from './api';
 
 /** Carga asíncrona con estado. Devuelve [data, recargar, cargando, error]. */
 export function useCargar<T>(fn: () => Promise<T>, deps: unknown[] = []): [T | null, () => void, boolean, string | null] {
@@ -7,6 +8,8 @@ export function useCargar<T>(fn: () => Promise<T>, deps: unknown[] = []): [T | n
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  // Cualquier escritura en la app (vía api()) refresca esta vista al instante.
+  useEffect(() => onMutacion(() => setTick((t) => t + 1)), []);
   useEffect(() => {
     let vivo = true;
     setCargando(true);

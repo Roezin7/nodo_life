@@ -19,6 +19,17 @@ export class ApiError extends Error {
   }
 }
 
+// --- Bus de mutaciones: cualquier escritura exitosa avisa para que TODAS las
+//     vistas cargadas (useCargar) se refresquen al instante, sin cablear cada una. ---
+const mutacionListeners = new Set<() => void>();
+export function onMutacion(fn: () => void): () => void {
+  mutacionListeners.add(fn);
+  return () => { mutacionListeners.delete(fn); };
+}
+export function notificarMutacion() {
+  for (const l of mutacionListeners) l();
+}
+
 /** Resultado sintético cuando una mutación se encola offline. */
 export interface Encolado { queued: true }
 export const fueEncolado = (r: unknown): r is Encolado =>
@@ -53,12 +64,16 @@ export async function api<T = unknown>(
     throw new ApiError(0, 'Sin conexión');
   }
 
-  if (res.status === 204) return undefined as T;
+  if (res.status === 204) {
+    if (esMutacion) notificarMutacion();
+    return undefined as T;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401) setToken(null); // token inválido -> forzar re-login
     throw new ApiError(res.status, (data as { error?: string }).error ?? 'Error de red');
   }
+  if (esMutacion) notificarMutacion();
   return data as T;
 }
 
