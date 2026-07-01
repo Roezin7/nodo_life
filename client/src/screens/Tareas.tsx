@@ -44,7 +44,8 @@ export default function Tareas() {
     recargar();
   }
   async function crear(titulo: string, extra: Partial<Tarea>) {
-    await api('/tareas', { method: 'POST', body: { titulo, fecha_vence: extra.fecha_vence ?? hoyISO(), proyecto_id: extra.proyecto_id ?? null, area_id: area ?? undefined } });
+    // La fecha es opcional: solo la lleva si la columna la aporta (día concreto).
+    await api('/tareas', { method: 'POST', body: { titulo, fecha_vence: extra.fecha_vence ?? null, proyecto_id: extra.proyecto_id ?? null, area_id: area ?? undefined } });
     recargar();
   }
   async function borrarProy(p: ProyCol) {
@@ -77,10 +78,8 @@ export default function Tareas() {
             <Columna key={fecha} titulo={etiquetaDia(fecha)} vencido={fecha < hoyISO()} tareas={filtrar(tareas)} colorArea={colorArea}
               onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea} onCrear={(t) => crear(t, { fecha_vence: fecha })} />
           ))}
-          {filtrar(tab.sin_fecha).length > 0 && (
-            <Columna titulo="Sin fecha" tareas={filtrar(tab.sin_fecha)} colorArea={colorArea} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
-              onCrear={(t) => crear(t, {})} />
-          )}
+          <Columna titulo="Sin fecha" tareas={filtrar(tab.sin_fecha)} colorArea={colorArea} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
+            onCrear={(t) => crear(t, {})} />
           {proyectosVis.map((p) => (
             <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas} colorArea={colorArea}
               sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} color={p.area_color} /></>}
@@ -108,6 +107,9 @@ function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, o
 }) {
   const [texto, setTexto] = useState('');
   function add() { const t = texto.trim(); if (!t) return; onCrear(t); setTexto(''); }
+  // Pendientes arriba, hechas (tachadas) al final; el contador solo cuenta pendientes.
+  const ordenadas = [...tareas].sort((a, b) => (a.estado === 'hecha' ? 1 : 0) - (b.estado === 'hecha' ? 1 : 0));
+  const pendientes = tareas.filter((t) => t.estado !== 'hecha').length;
   return (
     <div className="board-col">
       <div className="board-col-head">
@@ -115,16 +117,16 @@ function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, o
           <div className="board-col-title">
             <strong>{titulo}</strong>
             {vencido && <span className="prio-alta" title="Atrasado">●</span>}
-            <span className="board-count">{tareas.length}</span>
+            <span className="board-count">{pendientes}</span>
           </div>
           {sub && <div className="board-col-sub">{sub}</div>}
         </div>
         {acciones}
       </div>
       <div className="board-col-body">
-        {tareas.length === 0 ? <p className="board-empty">Sin pendientes</p> : tareas.map((t) => (
-          <div key={t.id} className="board-card">
-            <button className={`check ${t.estado === 'hecha' ? 'check--on' : ''}`} onClick={() => onToggle(t)} aria-label="Completar"><Icono name="checks" size={11} /></button>
+        {ordenadas.length === 0 ? <p className="board-empty">Sin pendientes</p> : ordenadas.map((t) => (
+          <div key={t.id} className={`board-card ${t.estado === 'hecha' ? 'board-card--done' : ''}`}>
+            <button className={`check ${t.estado === 'hecha' ? 'check--on' : ''}`} onClick={() => onToggle(t)} aria-label={t.estado === 'hecha' ? 'Reabrir' : 'Completar'}><Icono name="checks" size={11} /></button>
             <span className="board-card-title" onClick={() => onEditar(t)}>
               {colorArea && <span className="area-dot" style={{ background: colorArea(t.area_id), marginRight: 2 }} />}
               {t.prioridad === 'alta' && <span className="prio-alta" title="Prioridad alta">●</span>}
@@ -141,16 +143,18 @@ function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, o
 }
 
 function TareaForm({ proyectos, tarea, onClose, onSaved }: { proyectos: ProyCol[]; tarea?: Tarea; onClose: () => void; onSaved: () => void }) {
+  const [areas] = useAreas();
   const [titulo, setTitulo] = useState(tarea?.titulo ?? '');
   const [prioridad, setPrioridad] = useState(tarea?.prioridad ?? 'media');
-  const [fecha, setFecha] = useState(tarea?.fecha_vence ?? hoyISO());
+  const [fecha, setFecha] = useState(tarea?.fecha_vence ?? '');
+  const [areaId, setAreaId] = useState<number | ''>(tarea?.area_id ?? '');
   const [proyecto, setProyecto] = useState<number | ''>(tarea?.proyecto_id ?? '');
   const [error, setError] = useState('');
 
   async function guardar() {
     setError('');
     try {
-      const body = { titulo, prioridad, fecha_vence: fecha, proyecto_id: proyecto || null };
+      const body = { titulo, prioridad, fecha_vence: fecha || null, proyecto_id: proyecto || null, area_id: areaId || undefined };
       if (tarea) await api(`/tareas/${tarea.id}`, { method: 'PATCH', body });
       else await api('/tareas', { method: 'POST', body });
       onSaved();
@@ -160,11 +164,12 @@ function TareaForm({ proyectos, tarea, onClose, onSaved }: { proyectos: ProyCol[
   return (
     <Modal titulo={tarea ? 'Editar tarea' : 'Nueva tarea'} onClose={onClose}>
       <Field label="Título"><input value={titulo} onChange={(e) => setTitulo(e.target.value)} /></Field>
-      <Field label="Día"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
+      <Field label="Día (opcional)"><input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
+      <Field label="Área"><select value={areaId} onChange={(e) => setAreaId(e.target.value ? Number(e.target.value) : '')}><option value="">— predeterminada —</option>{(areas ?? []).map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}</select></Field>
       <Field label="Proyecto (opcional)"><select value={proyecto} onChange={(e) => setProyecto(e.target.value ? Number(e.target.value) : '')}><option value="">— pendiente general —</option>{proyectos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</select></Field>
       <Field label="Prioridad"><select value={prioridad} onChange={(e) => setPrioridad(e.target.value)}><option value="baja">Baja</option><option value="media">Media</option><option value="alta">Alta</option></select></Field>
       {error && <p className="error-msg">{error}</p>}
-      <button className="btn-primary" onClick={guardar} disabled={!titulo || !fecha}>Guardar</button>
+      <button className="btn-primary" onClick={guardar} disabled={!titulo}>Guardar</button>
     </Modal>
   );
 }

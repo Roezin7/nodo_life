@@ -110,8 +110,12 @@ export async function listarTareas(vista: 'hoy' | 'inbox' | 'todas', filtros: { 
  */
 export async function tablero() {
   const orden = [{ fecha_vence: { sort: 'asc' as const, nulls: 'last' as const } }, { prioridad: 'desc' as const }, { id: 'desc' as const }];
+  // Marcar una tarea NO la borra del tablero: las hechas siguen visibles
+  // (tachadas) durante 7 días, para poder deshacerlas y ver lo logrado.
+  const hace7d = new Date(Date.now() - 7 * 86_400_000);
+  const visibles = { OR: [{ estado: 'pendiente' as const }, { estado: 'hecha' as const, completado_at: { gte: hace7d } }] };
   const [generales, proyectos] = await Promise.all([
-    prisma.tareas.findMany({ where: { estado: 'pendiente', proyecto_id: null }, orderBy: orden, take: 500 }),
+    prisma.tareas.findMany({ where: { proyecto_id: null, ...visibles }, orderBy: orden, take: 500 }),
     prisma.proyectos.findMany({
       where: { estado: { not: 'hecho' } },
       orderBy: [{ orden: 'asc' }, { id: 'asc' }],
@@ -150,7 +154,9 @@ export async function tablero() {
         tareas_total: total,
         tareas_hechas: hechas,
         avance: avancePct(hechas, total),
-        tareas: p.tareas.filter((t) => t.estado === 'pendiente').map(serializarTarea),
+        tareas: p.tareas
+          .filter((t) => t.estado === 'pendiente' || (t.completado_at != null && t.completado_at >= hace7d))
+          .map(serializarTarea),
       };
     }),
   };
