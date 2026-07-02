@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, mxn } from '../api';
-import { Page, useCargar, Stat, LineChart, Vacio, Modal, Field } from '../ui';
+import { Page, useCargar, Stat, LineChart, Vacio, Modal, Field, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface ActivoFisico { id: number; nombre: string; categoria: 'inmueble' | 'vehiculo' | 'otro'; valor: number; nota: string | null; fecha_valuacion: string }
@@ -65,7 +65,7 @@ export default function Patrimonio() {
                 </div>
                 <span className="row-amount">{mxn(a.valor)}</span>
                 <button className="icon-btn" onClick={() => setEditar(a)} aria-label="Editar"><Icono name="edit" size={15} /></button>
-                <button className="icon-btn" onClick={async () => { if (confirm('¿Borrar activo?')) { await api(`/patrimonio/activos/${a.id}`, { method: 'DELETE' }); recargarActivos(); recargarVivo(); } }}><Icono name="trash" size={15} /></button>
+                <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar el activo "${a.nombre}"?`)) { await api(`/patrimonio/activos/${a.id}`, { method: 'DELETE' }); toast('Activo borrado'); recargarActivos(); recargarVivo(); } }}><Icono name="trash" size={15} /></button>
               </div>
             ))}
           </div>
@@ -88,7 +88,7 @@ export default function Patrimonio() {
                 <div key={s.id} className="row">
                   <span className="row-title">{s.fecha}</span>
                   <span className="row-amount">{mxn(s.patrimonio_neto)}</span>
-                  <button className="icon-btn" onClick={async () => { if (confirm('¿Borrar snapshot?')) { await api(`/patrimonio/snapshots/${s.id}`, { method: 'DELETE' }); recargarSnaps(); } }}><Icono name="trash" size={15} /></button>
+                  <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar el snapshot del ${s.fecha}?`)) { await api(`/patrimonio/snapshots/${s.id}`, { method: 'DELETE' }); toast('Snapshot borrado'); recargarSnaps(); } }}><Icono name="trash" size={15} /></button>
                 </div>
               ))}
             </div>

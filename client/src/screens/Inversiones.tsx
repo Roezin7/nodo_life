@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, mxn, pct } from '../api';
-import { Page, useCargar, Stat, Modal, Field, Vacio } from '../ui';
+import { Page, useCargar, Stat, Modal, Field, Vacio, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface Pos {
@@ -41,7 +41,7 @@ export default function Inversiones() {
                   <div className="row-amount">{pos.valor_mxn != null ? mxn(pos.valor_mxn) : mxn(pos.costo)}</div>
                   {pos.pnl != null && <div className={`row-sub ${pos.pnl >= 0 ? 'pos' : 'neg'}`}>{pos.pnl >= 0 ? '+' : ''}{pct(pos.rendimiento)}</div>}
                 </div>
-                <button className="icon-btn" onClick={async () => { if (confirm('¿Borrar posición?')) { await api(`/inversiones/posiciones/${pos.id}`, { method: 'DELETE' }); recargar(); } }}><Icono name="trash" size={15} /></button>
+                <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar la posición ${pos.ticker}?`)) { await api(`/inversiones/posiciones/${pos.id}`, { method: 'DELETE' }); toast('Posición borrada'); recargar(); } }}><Icono name="trash" size={15} /></button>
               </div>
             ))}
           </div>

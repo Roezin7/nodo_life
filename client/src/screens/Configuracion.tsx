@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, mxn } from '../api';
 import { useAuth } from '../auth';
-import { Page, useCargar, Field, Vacio, Modal } from '../ui';
+import { Page, useCargar, Field, Vacio, Modal, toast } from '../ui';
 import { Icono } from '../icons';
 import { pushSoportado, permisoActual, estaSuscrito, activarPush, desactivarPush, probarPush } from '../push';
 
@@ -36,29 +36,29 @@ function Perfil() {
   const [nombre, setN] = useState(usuario?.nombre ?? '');
   const [pinA, setPinA] = useState('');
   const [pinN, setPinN] = useState('');
-  const [msg, setMsg] = useState('');
+  const [error, setError] = useState('');
 
   async function guardarNombre() {
     await api('/auth/nombre', { method: 'PATCH', body: { nombre } });
-    setNombre(nombre); setMsg('Nombre actualizado.');
+    setNombre(nombre); toast('Nombre actualizado');
   }
   async function cambiarPin() {
-    setMsg('');
+    setError('');
     try {
       await api('/auth/cambiar-pin', { method: 'POST', body: { pin_actual: pinA, pin_nuevo: pinN } });
-      setPinA(''); setPinN(''); setMsg('PIN actualizado.');
-    } catch (e) { setMsg(e instanceof Error ? e.message : 'Error'); }
+      setPinA(''); setPinN(''); toast('PIN actualizado');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Error'); }
   }
   return (
     <Seccion titulo="Perfil">
       <Field label="Nombre"><input value={nombre} onChange={(e) => setN(e.target.value)} /></Field>
-      <button className="btn-ghost" onClick={guardarNombre}>Guardar nombre</button>
+      <button className="btn-primary" onClick={guardarNombre} disabled={!nombre}>Guardar nombre</button>
       <div className="btn-row" style={{ marginTop: '0.5rem' }}>
         <Field label="PIN actual"><input type="password" value={pinA} onChange={(e) => setPinA(e.target.value)} /></Field>
         <Field label="PIN nuevo"><input type="password" value={pinN} onChange={(e) => setPinN(e.target.value)} /></Field>
       </div>
-      <button className="btn-ghost" onClick={cambiarPin} disabled={!pinA || !pinN}>Cambiar PIN</button>
-      {msg && <p className="row-sub">{msg}</p>}
+      <button className="btn-primary" onClick={cambiarPin} disabled={!pinA || !pinN}>Cambiar PIN</button>
+      {error && <p className="error-msg">{error}</p>}
     </Seccion>
   );
 }
@@ -177,6 +177,7 @@ function Ajustes() {
     if (horaTareas) body.tareas_recordatorio_hora = horaTareas;
     await api('/settings', { method: 'PUT', body });
     setCad(''); setHora(''); setHoraTareas(''); recargar();
+    toast('Ajustes guardados');
   }
   return (
     <Seccion titulo="Ajustes">
@@ -189,7 +190,7 @@ function Ajustes() {
       <Field label={`Hora del resumen de tareas del día — actual: ${cfg?.tareas_recordatorio_hora ?? '08:00'}`}>
         <input type="time" value={horaTareas} onChange={(e) => setHoraTareas(e.target.value)} />
       </Field>
-      <button className="btn-ghost" onClick={guardar}>Guardar ajustes</button>
+      <button className="btn-primary" onClick={guardar}>Guardar ajustes</button>
     </Seccion>
   );
 }
@@ -199,7 +200,6 @@ function Recordatorios() {
   const [permiso, setPermiso] = useState<NotificationPermission>(permisoActual());
   const [suscrito, setSuscrito] = useState(false);
   const [ocupado, setOcupado] = useState(false);
-  const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -207,20 +207,20 @@ function Recordatorios() {
   }, [soportado]);
 
   async function activar() {
-    setOcupado(true); setError(''); setMsg('');
-    try { await activarPush(); setSuscrito(true); setPermiso(permisoActual()); setMsg('Listo. Te llegarán recordatorios en este dispositivo.'); }
+    setOcupado(true); setError('');
+    try { await activarPush(); setSuscrito(true); setPermiso(permisoActual()); toast('Recordatorios activados en este dispositivo'); }
     catch (e) { setError(e instanceof Error ? e.message : 'No pude activar los recordatorios.'); }
     finally { setOcupado(false); }
   }
   async function desactivar() {
-    setOcupado(true); setError(''); setMsg('');
-    try { await desactivarPush(); setSuscrito(false); setMsg('Recordatorios desactivados en este dispositivo.'); }
+    setOcupado(true); setError('');
+    try { await desactivarPush(); setSuscrito(false); toast('Recordatorios desactivados'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Error.'); }
     finally { setOcupado(false); }
   }
   async function probar() {
-    setOcupado(true); setError(''); setMsg('');
-    try { const n = await probarPush(); setMsg(n > 0 ? `Notificación de prueba enviada (${n} dispositivo${n > 1 ? 's' : ''}).` : 'No hay dispositivos suscritos todavía.'); }
+    setOcupado(true); setError('');
+    try { const n = await probarPush(); toast(n > 0 ? `Notificación de prueba enviada (${n} dispositivo${n > 1 ? 's' : ''})` : 'No hay dispositivos suscritos todavía', n > 0 ? 'ok' : 'error'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Error al enviar la prueba.'); }
     finally { setOcupado(false); }
   }
@@ -246,7 +246,6 @@ function Recordatorios() {
             )}
           </div>
           {permiso === 'denied' && <p className="row-sub" style={{ color: 'var(--danger)' }}>Bloqueaste las notificaciones para este sitio. Actívalas desde los ajustes del navegador.</p>}
-          {msg && <p className="row-sub">{msg}</p>}
           {error && <p className="error-msg">{error}</p>}
         </>
       )}

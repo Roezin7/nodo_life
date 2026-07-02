@@ -39,9 +39,19 @@ export function Page({ titulo, icono, children, accion }: { titulo: string; icon
 }
 
 export function Modal({ titulo, onClose, children }: { titulo: string; onClose: () => void; children: ReactNode }) {
+  // Esc cierra y se bloquea el scroll del fondo mientras el modal está abierto.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prev; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card" role="dialog" aria-label={titulo} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-grab" />
         <div className="modal-head">
           <h3>{titulo}</h3>
           <button className="icon-btn" onClick={onClose} aria-label="Cerrar"><Icono name="x" size={18} /></button>
@@ -52,12 +62,76 @@ export function Modal({ titulo, onClose, children }: { titulo: string; onClose: 
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="field">
       <span className="field-label">{label}</span>
       {children}
+      {hint && <span className="field-hint">{hint}</span>}
     </label>
+  );
+}
+
+// ---------------------------------------------------------------------------
+//  Avisos globales: toasts de feedback + diálogo de confirmación propio.
+//  <Avisos /> se monta una sola vez en App; toast() y confirmar() se usan
+//  desde cualquier pantalla para un lenguaje visual consistente.
+// ---------------------------------------------------------------------------
+interface ToastItem { id: number; texto: string; tipo: 'ok' | 'error' }
+interface ConfirmReq { mensaje: string; detalle?: string; accion?: string; resolver: (ok: boolean) => void }
+
+let pushToast: ((t: Omit<ToastItem, 'id'>) => void) | null = null;
+let pushConfirm: ((c: ConfirmReq) => void) | null = null;
+
+/** Aviso breve no bloqueante ("Guardado", "Error al…"). */
+export function toast(texto: string, tipo: 'ok' | 'error' = 'ok') {
+  pushToast?.({ texto, tipo });
+}
+
+/** Confirmación con estilo propio (reemplaza al confirm() del navegador). */
+export function confirmar(mensaje: string, opts: { detalle?: string; accion?: string } = {}): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!pushConfirm) { resolve(window.confirm(mensaje)); return; }
+    pushConfirm({ mensaje, ...opts, resolver: resolve });
+  });
+}
+
+export function Avisos() {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [conf, setConf] = useState<ConfirmReq | null>(null);
+  useEffect(() => {
+    let n = 0;
+    pushToast = (t) => {
+      const id = ++n;
+      setToasts((ts) => [...ts, { ...t, id }]);
+      setTimeout(() => setToasts((ts) => ts.filter((x) => x.id !== id)), 3200);
+    };
+    pushConfirm = setConf;
+    return () => { pushToast = null; pushConfirm = null; };
+  }, []);
+  function cerrar(ok: boolean) {
+    conf?.resolver(ok);
+    setConf(null);
+  }
+  return (
+    <>
+      <div className="toast-stack" aria-live="polite">
+        {toasts.map((t) => <div key={t.id} className={`toast ${t.tipo === 'error' ? 'toast--error' : ''}`}>{t.texto}</div>)}
+      </div>
+      {conf && (
+        <div className="modal-backdrop" onClick={() => cerrar(false)}>
+          <div className="modal-card confirm-card" role="alertdialog" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-grab" />
+            <p className="confirm-msg">{conf.mensaje}</p>
+            {conf.detalle && <p className="confirm-detalle">{conf.detalle}</p>}
+            <div className="confirm-botones">
+              <button className="btn-ghost" onClick={() => cerrar(false)}>Cancelar</button>
+              <button className="btn-danger" onClick={() => cerrar(true)}>{conf.accion ?? 'Borrar'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

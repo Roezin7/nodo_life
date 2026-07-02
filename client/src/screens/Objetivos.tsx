@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, pct } from '../api';
-import { Page, useCargar, Modal, Field, Vacio, Progress } from '../ui';
+import { Page, useCargar, Modal, Field, Vacio, Progress, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 import { useAreas, FiltroArea } from '../areas';
 
@@ -36,7 +36,7 @@ export default function Objetivos() {
                   <div className="btn-row">
                     {o.estado === 'logrado' && <span className="pill" style={{ color: 'var(--success)' }}>✓ logrado</span>}
                     <button className="icon-btn" onClick={() => setEditar(o)} aria-label="Editar objetivo"><Icono name="edit" size={15} /></button>
-                    <button className="icon-btn" onClick={async () => { if (confirm('¿Borrar objetivo?')) { await api(`/objetivos/${o.id}`, { method: 'DELETE' }); recargar(); } }}><Icono name="trash" size={15} /></button>
+                    <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar el objetivo "${o.nombre}"?`)) { await api(`/objetivos/${o.id}`, { method: 'DELETE' }); toast('Objetivo borrado'); recargar(); } }} aria-label="Borrar objetivo"><Icono name="trash" size={15} /></button>
                   </div>
                 </div>
                 <Progress value={o.progreso} color={o.area_color} />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { Page, useCargar, Stat, Segmented, Modal, Field, Vacio, LineChart } from '../ui';
+import { Page, useCargar, Stat, Segmented, Modal, Field, Vacio, LineChart, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface PesoPunto { fecha: string; peso: number; media_movil: number }
@@ -117,7 +117,7 @@ function Entrenamientos() {
                     : e.metricas ? Object.entries(e.metricas).map(([k, v]) => `${k}: ${v}`).join(' · ') : (e.notas ?? '')}
                 </span>
               </div>
-              <button className="icon-btn" onClick={async () => { if (confirm('¿Borrar?')) { await api(`/salud/entrenamientos/${e.id}`, { method: 'DELETE' }); recargar(); } }}><Icono name="trash" size={15} /></button>
+              <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar el entrenamiento del ${e.fecha}?`)) { await api(`/salud/entrenamientos/${e.id}`, { method: 'DELETE' }); toast('Entrenamiento borrado'); recargar(); } }}><Icono name="trash" size={15} /></button>
             </div>
           ))}
         </div>

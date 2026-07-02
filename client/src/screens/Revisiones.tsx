@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { Page, useCargar, Segmented, Field, Vacio } from '../ui';
+import { Page, useCargar, Segmented, Field, Vacio, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface Rev { id: number; tipo: string; fecha: string; notas: string | null; ia_resumen: { texto?: string } | null }
@@ -15,13 +15,12 @@ export default function Revisiones() {
   const [notas, setNotas] = useState('');
   const [generando, setGenerando] = useState(false);
   const [guardando, setGuardando] = useState(false);
-  const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
   const silviaOk = silvia?.disponible;
 
   async function generar() {
-    setGenerando(true); setError(''); setMsg('');
+    setGenerando(true); setError('');
     try {
       const r = await api<{ texto: string }>('/revisiones/resumen', { method: 'POST', body: { tipo } });
       setResumen(r.texto);
@@ -29,15 +28,15 @@ export default function Revisiones() {
     finally { setGenerando(false); }
   }
   async function guardar() {
-    setGuardando(true); setError(''); setMsg('');
+    setGuardando(true); setError('');
     try {
       const r = await api<{ snapshot_generado: boolean }>('/revisiones', {
         method: 'POST',
         body: { tipo, notas: notas || undefined, ia_resumen: resumen ? { texto: resumen } : undefined },
       });
-      setMsg(r.snapshot_generado
-        ? '✓ Cierre semanal guardado · patrimonio congelado y objetivos recalculados.'
-        : '✓ Revisión guardada.');
+      toast(r.snapshot_generado
+        ? 'Cierre semanal guardado · patrimonio congelado y objetivos recalculados'
+        : 'Revisión guardada');
       setResumen(''); setNotas(''); recargar();
     } catch (e) { setError(e instanceof Error ? e.message : 'Error al guardar.'); }
     finally { setGuardando(false); }
@@ -51,7 +50,7 @@ export default function Revisiones() {
       </p>
 
       <div className="card">
-        <Segmented value={tipo} onChange={(v) => { setTipo(v); setResumen(''); setMsg(''); setError(''); }}
+        <Segmented value={tipo} onChange={(v) => { setTipo(v); setResumen(''); setError(''); }}
           opciones={[{ v: 'semanal', label: 'Semanal' }, { v: 'diaria', label: 'Diaria' }]} />
 
         <div className="btn-row" style={{ marginTop: '0.8rem', alignItems: 'center' }}>
@@ -78,7 +77,6 @@ export default function Revisiones() {
         <button className="btn-primary" style={{ marginTop: '0.5rem' }} onClick={guardar} disabled={guardando || (!resumen && !notas)}>
           {guardando ? 'Guardando…' : `Guardar revisión ${tipo}`}
         </button>
-        {msg && <p className="row-sub" style={{ color: 'var(--success)' }}>{msg}</p>}
         {error && <p className="error-msg">{error}</p>}
       </div>
 

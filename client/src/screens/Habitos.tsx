@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, pct } from '../api';
-import { Page, useCargar, Modal, Field, Vacio, Progress } from '../ui';
+import { Page, useCargar, Modal, Field, Vacio, Progress, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface DiaCheck { fecha: string; hecho: boolean }
@@ -25,8 +25,9 @@ export default function Habitos() {
   }
 
   async function borrar(h: Habito) {
-    if (!confirm(`¿Eliminar el hábito "${h.nombre}"? Se borrará también su historial.`)) return;
+    if (!(await confirmar(`¿Eliminar el hábito "${h.nombre}"?`, { detalle: 'Se borrará también todo su historial y sus rachas.', accion: 'Eliminar' }))) return;
     await api(`/habitos/${h.id}`, { method: 'DELETE' });
+    toast('Hábito eliminado');
     recargar();
   }
 

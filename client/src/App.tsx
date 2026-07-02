@@ -15,6 +15,7 @@ import Objetivos from './screens/Objetivos';
 import Revisiones from './screens/Revisiones';
 import Configuracion from './screens/Configuracion';
 import OfflineBanner from './OfflineBanner';
+import { Avisos } from './ui';
 import SilviaBubble from './silvia/SilviaBubble';
 import Shell from './Shell';
 import SplashIntro from './brand/SplashIntro';
@@ -79,6 +80,7 @@ export default function App() {
           <AppBody />
         </BrowserRouter>
       </AuthProvider>
+      <Avisos />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, mxn, pct } from '../api';
-import { Page, useCargar, Stat, Progress, Modal, Field, Segmented, Vacio } from '../ui';
+import { Page, useCargar, Stat, Progress, Modal, Field, Segmented, Vacio, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
 
 interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; es_central: boolean; saldo: number }
@@ -150,8 +150,9 @@ function Movimientos({ nav, ref_ }: { nav: NavProps; ref_: Ref }) {
   const catNombre = (id: number | null) => ref_.categorias.find((c) => c.id === id)?.nombre ?? '';
 
   async function borrar(id: number) {
-    if (!confirm('¿Borrar movimiento?')) return;
+    if (!(await confirmar('¿Borrar este movimiento?', { detalle: 'El saldo de la cuenta se recalcula al instante.' }))) return;
     await api(`/finanzas/movimientos/${id}`, { method: 'DELETE' });
+    toast('Movimiento borrado');
     recargar();
   }
 
@@ -244,8 +245,9 @@ function CobrarDeudas({ modo }: { modo: 'cobrar' | 'deudas' }) {
   const estadoCerrado = modo === 'cobrar' ? 'cobrado' : 'pagado';
 
   async function borrar(it: ItemCD) {
-    if (!confirm(`¿Borrar "${it.descripcion}"?`)) return;
+    if (!(await confirmar(`¿Borrar "${it.descripcion}"?`))) return;
     await api(`${path}/${it.id}`, { method: 'DELETE' });
+    toast('Registro borrado');
     recargar();
   }
 

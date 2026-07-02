@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api, pct } from '../api';
-import { Page, useCargar, Modal, Field, Progress } from '../ui';
+import { Page, useCargar, Modal, Field, Progress, confirmar } from '../ui';
 import { Icono } from '../icons';
 import { useAreas, FiltroArea } from '../areas';
 
@@ -39,7 +39,7 @@ export default function Tareas() {
     recargar();
   }
   async function borrar(t: Tarea) {
-    if (!confirm('¿Borrar tarea?')) return;
+    if (!(await confirmar(`¿Borrar la tarea "${t.titulo}"?`))) return;
     await api(`/tareas/${t.id}`, { method: 'DELETE' });
     recargar();
   }
@@ -49,7 +49,7 @@ export default function Tareas() {
     recargar();
   }
   async function borrarProy(p: ProyCol) {
-    if (!confirm(`¿Borrar el proyecto "${p.nombre}"? Sus tareas quedarán sin proyecto.`)) return;
+    if (!(await confirmar(`¿Borrar el proyecto "${p.nombre}"?`, { detalle: 'Sus tareas no se pierden: quedarán como pendientes generales.' }))) return;
     await api(`/tareas/proyectos/${p.id}`, { method: 'DELETE' });
     recargar();
   }
@@ -81,7 +81,7 @@ export default function Tareas() {
           <Columna titulo="Sin fecha" tareas={filtrar(tab.sin_fecha)} colorArea={colorArea} onToggle={toggle} onBorrar={borrar} onEditar={setEditTarea}
             onCrear={(t) => crear(t, {})} />
           {proyectosVis.map((p) => (
-            <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas} colorArea={colorArea}
+            <Columna key={`p${p.id}`} titulo={p.nombre} tareas={p.tareas} colorArea={colorArea} acento={p.area_color}
               sub={<><span>{p.tareas_hechas}/{p.tareas_total} · {pct(p.avance)}</span><Progress value={p.avance} color={p.area_color} /></>}
               acciones={<>
                 <button className="icon-btn" onClick={() => setEditProy(p)} aria-label="Editar proyecto"><Icono name="edit" size={14} /></button>
@@ -100,9 +100,9 @@ export default function Tareas() {
   );
 }
 
-function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha, colorArea }: {
+function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, onEditar, onCrear, verFecha, colorArea, acento }: {
   titulo: string; vencido?: boolean; sub?: React.ReactNode; acciones?: React.ReactNode; tareas: Tarea[]; verFecha?: boolean;
-  colorArea?: (id: number) => string;
+  colorArea?: (id: number) => string; acento?: string;
   onToggle: (t: Tarea) => void; onBorrar: (t: Tarea) => void; onEditar: (t: Tarea) => void; onCrear: (titulo: string) => void;
 }) {
   const [texto, setTexto] = useState('');
@@ -110,8 +110,12 @@ function Columna({ titulo, vencido, sub, acciones, tareas, onToggle, onBorrar, o
   // Pendientes arriba, hechas (tachadas) al final; el contador solo cuenta pendientes.
   const ordenadas = [...tareas].sort((a, b) => (a.estado === 'hecha' ? 1 : 0) - (b.estado === 'hecha' ? 1 : 0));
   const pendientes = tareas.filter((t) => t.estado !== 'hecha').length;
+  // Las notas de proyecto se tiñen sutilmente con el color de su área.
+  const estilo = acento
+    ? { background: `color-mix(in srgb, ${acento} 9%, var(--surface-2))`, borderTop: `3px solid ${acento}` }
+    : undefined;
   return (
-    <div className="board-col">
+    <div className="board-col" style={estilo}>
       <div className="board-col-head">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="board-col-title">
