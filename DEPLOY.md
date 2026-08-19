@@ -9,7 +9,7 @@ compilada (todo lo demás). No hay frontend separado.
 2. **Build Pack: Dockerfile** (el `Dockerfile` en la raíz ya está listo).
    - Hace `npm ci`, `prisma generate`, build de client→`server/public` y server→`server/dist`.
    - Al arrancar: `prisma migrate deploy` + seed idempotente + `npm start`.
-3. **Puerto:** 3000. **Health check:** `/api/health`.
+3. **Puerto:** 4000. **Health check:** `/api/health`.
 4. **Environment Variables** (pégalas en Coolify; el `.env` local NO entra a la imagen):
 
    | Variable | Valor |
@@ -40,7 +40,7 @@ cp server/.env.example server/.env   # rellena DATABASE_URL y JWT_SECRET
 npm install
 npm run prisma:migrate -w server     # o prisma migrate deploy si ya hay migraciones
 npm run seed
-npm run dev                          # API :3000 + Vite :5173 (proxy /api)
+npm run dev                          # API :4000 + Vite :5173 (proxy /api)
 ```
 
 ## Notas
