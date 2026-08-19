@@ -7,6 +7,8 @@ import { firmarToken } from './jwt.js';
 import { requireAuth } from './middleware.js';
 
 export const authRouter = Router();
+const COOKIE = 'nodo_vida_session';
+const cookieOptions = { httpOnly: true, sameSite: 'strict' as const, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86_400_000, path: '/' };
 
 /** El usuario único (para mostrar el nombre en el login). No expone pin_hash. */
 async function elUsuario() {
@@ -24,7 +26,7 @@ authRouter.get(
 
 const loginSchema = z.object({ pin: z.string().min(3).max(12) });
 
-/** POST /auth/login { pin } -> { token, usuario } */
+/** POST /auth/login { pin } -> { usuario }; la sesión se entrega en cookie HttpOnly. */
 authRouter.post(
   '/login',
   asyncHandler(async (req, res) => {
@@ -33,10 +35,16 @@ authRouter.post(
     if (!usuario || !(await bcrypt.compare(pin, usuario.pin_hash))) {
       throw new HttpError(401, 'PIN incorrecto');
     }
-    const token = firmarToken({ sub: usuario.id.toString(), nombre: usuario.nombre });
-    res.json({ token, usuario: { id: Number(usuario.id), nombre: usuario.nombre } });
+    const token = firmarToken({ sub: usuario.id.toString(), nombre: usuario.nombre, ver: usuario.sesion_version });
+    res.cookie(COOKIE, token, cookieOptions);
+    res.json({ usuario: { id: Number(usuario.id), nombre: usuario.nombre } });
   }),
 );
+
+authRouter.post('/logout', asyncHandler(async (_req, res) => {
+  res.clearCookie(COOKIE, cookieOptions);
+  res.status(204).end();
+}));
 
 /** GET /auth/me -> datos del usuario autenticado */
 authRouter.get(
@@ -69,8 +77,10 @@ authRouter.post(
     }
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { pin_hash: await bcrypt.hash(pin_nuevo, 10) },
+      data: { pin_hash: await bcrypt.hash(pin_nuevo, 10), sesion_version: { increment: 1 } },
     });
+    const token = firmarToken({ sub: usuario.id.toString(), nombre: usuario.nombre, ver: usuario.sesion_version + 1 });
+    res.cookie(COOKIE, token, cookieOptions);
     res.json({ ok: true });
   }),
 );

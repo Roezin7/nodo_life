@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, mxn } from '../api';
 import { Page, useCargar, Stat, LineChart, Vacio, Modal, Field, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
+import { hoyMX } from '../fecha';
 
 interface ActivoFisico { id: number; nombre: string; categoria: 'inmueble' | 'vehiculo' | 'otro'; valor: number; nota: string | null; fecha_valuacion: string }
 interface Vivo {
@@ -105,7 +106,7 @@ function ActivoModal({ activo, onClose, onSaved }: { activo: ActivoFisico | null
   const [categoria, setCategoria] = useState<'inmueble' | 'vehiculo' | 'otro'>(activo?.categoria ?? 'inmueble');
   const [valor, setValor] = useState(activo ? String(activo.valor) : '');
   const [nota, setNota] = useState(activo?.nota ?? '');
-  const [fecha, setFecha] = useState(activo?.fecha_valuacion ?? new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(activo?.fecha_valuacion ?? hoyMX());
   const [error, setError] = useState('');
 
   async function guardar() {

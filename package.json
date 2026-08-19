@@ -19,7 +19,7 @@
     "prisma:studio": "npm run prisma:studio -w server",
     "seed": "npm run seed -w server",
     "test": "npm run test -w server",
-    "render-build": "npm install && npm run build && npm run prisma:generate -w server && npx --workspace server prisma migrate deploy"
+    "render-build": "npm install && npm run prisma:generate -w server && npm run build"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

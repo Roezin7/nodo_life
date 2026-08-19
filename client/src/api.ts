@@ -1,14 +1,11 @@
-// Cliente HTTP mínimo para la API. Guarda el JWT en localStorage.
-
-const TOKEN_KEY = 'nodo_vida_token';
+// Cliente HTTP mínimo para la API. La sesión vive en una cookie HttpOnly.
+// Limpia tokens de versiones anteriores que pudieran seguir en el navegador.
+try { localStorage.removeItem('nodo_vida_token'); } catch { /* ignore */ }
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return null;
 }
-export function setToken(token: string | null) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
-}
+export function setToken(_token: string | null) { /* compatibilidad con versiones anteriores */ }
 
 export class ApiError extends Error {
   constructor(
@@ -41,24 +38,25 @@ export async function api<T = unknown>(
 ): Promise<T> {
   const { method = 'GET', body, auth = true } = opts;
   const esMutacion = method !== 'GET' && method !== 'HEAD';
+  const idempotencyKey = esMutacion && auth ? crypto.randomUUID() : null;
   const headers: Record<string, string> = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (auth) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
-  }
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
       method,
       headers,
+      credentials: 'include',
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    if (esMutacion) {
+    // Nunca encolar login ni ninguna mutación explícitamente anónima:
+    // evita guardar credenciales o repetir operaciones públicas.
+    if (esMutacion && auth && idempotencyKey) {
       const { encolar } = await import('./offline');
-      await encolar({ method, path, body, token: auth ? getToken() : null });
+      await encolar({ method, path, body, token: null, idempotencyKey });
       return { queued: true } as T;
     }
     throw new ApiError(0, 'Sin conexión');

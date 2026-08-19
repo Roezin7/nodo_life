@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api, getToken, setToken } from './api';
+import { api } from './api';
 
 export interface Usuario {
   id: number;
@@ -21,30 +21,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cargando, setCargando] = useState(true);
 
   useEffect(() => {
-    if (!getToken()) {
-      setCargando(false);
-      return;
-    }
     api<Usuario>('/auth/me')
       .then(setUsuario)
-      .catch(() => setToken(null))
+      .catch(() => setUsuario(null))
       .finally(() => setCargando(false));
   }, []);
 
   async function login(pin: string) {
-    const { token, usuario } = await api<{ token: string; usuario: Usuario }>('/auth/login', {
+    const { usuario } = await api<{ usuario: Usuario }>('/auth/login', {
       method: 'POST',
       body: { pin },
       auth: false,
     });
-    setToken(token);
     setUsuario(usuario);
   }
 
   function logout() {
-    void api('/silvia/historial', { method: 'DELETE' }).catch(() => {});
-    setToken(null);
-    setUsuario(null);
+    void (async () => {
+      await api('/silvia/historial', { method: 'DELETE' }).catch(() => {});
+      await api('/auth/logout', { method: 'POST' }).catch(() => {});
+      setUsuario(null);
+    })();
   }
 
   function setNombre(nombre: string) {

@@ -15,6 +15,7 @@ import { revisionesRouter } from '../revisiones/routes.js';
 import { dashboardRouter } from '../revisiones/dashboard.js';
 import { silviaRouter } from '../silvia/routes.js';
 import { pushRouter } from '../push/routes.js';
+import { idempotencyMiddleware } from '../middleware/idempotency.js';
 
 export const apiRouter = Router();
 
@@ -28,6 +29,8 @@ apiRouter.get('/health', asyncHandler(async (_req, res) => {
   }
   res.status(db ? 200 : 503).json({ ok: db, servicio: 'nodo-vida', db, ts: new Date().toISOString() });
 }));
+
+apiRouter.use(idempotencyMiddleware);
 
 apiRouter.use('/auth', authRouter); // Fase 0
 apiRouter.use('/areas', areasRouter); // Fase 0

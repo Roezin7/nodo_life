@@ -3,14 +3,15 @@ import { api, pct } from '../api';
 import { Page, useCargar, Modal, Field, Progress, confirmar } from '../ui';
 import { Icono } from '../icons';
 import { useAreas, FiltroArea } from '../areas';
+import { hoyMX, masDiasMX } from '../fecha';
 
 interface Tarea { id: number; titulo: string; area_id: number; proyecto_id: number | null; prioridad: string; fecha_vence: string | null; estado: string }
 interface ProyCol { id: number; nombre: string; area_id: number; area_color: string; estado: string; tareas_total: number; tareas_hechas: number; avance: number; tareas: Tarea[] }
 interface DiaCol { fecha: string; tareas: Tarea[] }
 interface Tablero { dias: DiaCol[]; sin_fecha: Tarea[]; proyectos: ProyCol[] }
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
-const masDias = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
+const hoyISO = hoyMX;
+const masDias = masDiasMX;
 
 /** Etiqueta amigable para una fecha ISO: Hoy / Mañana / Ayer / "lun 30 jun". */
 function etiquetaDia(iso: string): string {

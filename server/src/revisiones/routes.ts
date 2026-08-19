@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../middleware/error.js';
 import { requireAuth } from '../auth/middleware.js';
 import * as svc from './service.js';
+import { limiteIA } from '../middleware/ai-rate-limit.js';
 
 export const revisionesRouter = Router();
 revisionesRouter.use(requireAuth);
@@ -25,7 +26,7 @@ revisionesRouter.post('/', asyncHandler(async (req, res) => {
 }));
 
 /** Genera el resumen de Silvia para una revisión (no lo guarda; el front lo confirma). */
-revisionesRouter.post('/resumen', asyncHandler(async (req, res) => {
+revisionesRouter.post('/resumen', limiteIA, asyncHandler(async (req, res) => {
   const { tipo } = z.object({ tipo: z.enum(['diaria', 'semanal']) }).parse(req.body);
   res.json(await svc.generarResumen(tipo));
 }));

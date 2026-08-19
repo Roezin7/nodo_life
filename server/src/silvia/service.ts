@@ -1,16 +1,19 @@
 import { prisma } from '../db.js';
 import { conversar } from './agent.js';
+import { fechaDate } from '../lib/fecha.js';
 
 export async function chat(mensaje: string) {
-  await prisma.silvia_mensajes.create({ data: { rol: 'user', contenido: mensaje } });
   const r = await conversar(mensaje);
-  await prisma.silvia_mensajes.create({ data: { rol: 'assistant', contenido: r.texto } });
+  await prisma.$transaction([
+    prisma.silvia_mensajes.create({ data: { rol: 'user', contenido: mensaje } }),
+    prisma.silvia_mensajes.create({ data: { rol: 'assistant', contenido: r.texto } }),
+  ]);
   return r;
 }
 
 export async function historial() {
-  const msgs = await prisma.silvia_mensajes.findMany({ orderBy: { id: 'asc' }, take: 100 });
-  return msgs.map((m) => ({ id: Number(m.id), rol: m.rol, contenido: m.contenido, creado_at: m.creado_at.toISOString() }));
+  const msgs = await prisma.silvia_mensajes.findMany({ orderBy: { id: 'desc' }, take: 100 });
+  return msgs.reverse().map((m) => ({ id: Number(m.id), rol: m.rol, contenido: m.contenido, creado_at: m.creado_at.toISOString() }));
 }
 
 export async function listarMemoria() {
@@ -25,7 +28,7 @@ export async function listarMemoria() {
 
 export async function registrarEvento(contenido: string, fecha?: string) {
   const e = await prisma.silvia_memoria.create({
-    data: { tipo: 'evento', contenido, fecha: fecha ? new Date(fecha + 'T00:00:00Z') : null },
+    data: { tipo: 'evento', contenido, fecha: fecha ? fechaDate(fecha) : null },
   });
   return { id: Number(e.id) };
 }

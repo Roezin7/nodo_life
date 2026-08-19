@@ -5,6 +5,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { silviaDisponible } from './agent.js';
 import { borradorCaptura, capturaDisponible } from './draft.js';
 import * as svc from './service.js';
+import { limiteIA } from '../middleware/ai-rate-limit.js';
 
 export const silviaRouter = Router();
 silviaRouter.use(requireAuth);
@@ -26,13 +27,13 @@ silviaRouter.delete('/historial', asyncHandler(async (_req, res) => {
   res.status(204).end();
 }));
 
-silviaRouter.post('/chat', asyncHandler(async (req, res) => {
+silviaRouter.post('/chat', limiteIA, asyncHandler(async (req, res) => {
   const { mensaje } = z.object({ mensaje: z.string().min(1).max(2000) }).parse(req.body);
   res.json(await svc.chat(mensaje));
 }));
 
 /** Captura asistida: propone un borrador editable (no escribe). */
-silviaRouter.post('/captura', asyncHandler(async (req, res) => {
+silviaRouter.post('/captura', limiteIA, asyncHandler(async (req, res) => {
   const { texto } = z.object({ texto: z.string().min(1).max(1000) }).parse(req.body);
   res.json(await borradorCaptura(texto));
 }));

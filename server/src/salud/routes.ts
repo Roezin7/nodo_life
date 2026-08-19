@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../middleware/error.js';
 import { requireAuth } from '../auth/middleware.js';
 import * as svc from './service.js';
+import { hoyMX } from '../lib/fecha.js';
 
 export const saludRouter = Router();
 saludRouter.use(requireAuth);
@@ -83,7 +84,7 @@ saludRouter.delete('/entrenamientos/:id', asyncHandler(async (req, res) => {
 
 // --- Calendario mensual (mapa cuadriculado de días entrenados) ---
 saludRouter.get('/calendario', asyncHandler(async (req, res) => {
-  const mes = z.string().regex(/^\d{4}-\d{2}$/).default(new Date().toISOString().slice(0, 7)).parse(req.query.mes);
+  const mes = z.string().regex(/^\d{4}-\d{2}$/).default(hoyMX().slice(0, 7)).parse(req.query.mes);
   res.json(await svc.calendarioEntrenamientos(mes));
 }));
 

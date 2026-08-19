@@ -28,3 +28,8 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
+
+if (isProd && env.JWT_SECRET === 'cambia-esto-por-una-cadena-larga-y-secreta') {
+  console.error('❌ JWT_SECRET debe reemplazar el valor de ejemplo en producción.');
+  process.exit(1);
+}

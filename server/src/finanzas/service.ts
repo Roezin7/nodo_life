@@ -297,6 +297,9 @@ export async function crearTipoCuenta(nombre: string) {
 }
 
 export async function crearCuenta(data: { nombre: string; tipo_id: number; moneda?: string; saldo_inicial?: number; es_central?: boolean }) {
+  if (data.moneda !== undefined && data.moneda !== 'MXN') {
+    throw new HttpError(400, 'Las cuentas operativas deben usar MXN; registra inversiones en el módulo de Inversiones.');
+  }
   const c = await prisma.cuentas.create({
     data: {
       nombre: data.nombre,
@@ -312,6 +315,9 @@ export async function crearCuenta(data: { nombre: string; tipo_id: number; moned
 export async function editarCuenta(id: bigint, data: { nombre?: string; tipo_id?: number; moneda?: string; saldo_inicial?: number; es_central?: boolean; activo?: boolean }) {
   const existe = await prisma.cuentas.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Cuenta no encontrada');
+  if (data.moneda !== undefined && data.moneda !== 'MXN') {
+    throw new HttpError(400, 'Las cuentas operativas deben usar MXN; registra inversiones en el módulo de Inversiones.');
+  }
   await prisma.cuentas.update({
     where: { id },
     data: {

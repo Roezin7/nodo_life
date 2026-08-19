@@ -43,7 +43,7 @@ const csp = {
 app.use(helmet({ contentSecurityPolicy: isProd ? csp : false }));
 
 const origenes = env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean);
-app.use(cors({ origin: origenes.length ? origenes : false }));
+app.use(cors({ origin: origenes.length ? origenes : false, credentials: true }));
 
 app.use(express.json({ limit: '10mb' })); // 10mb para imágenes del borrador IA
 

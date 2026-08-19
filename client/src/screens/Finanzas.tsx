@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, mxn, pct } from '../api';
 import { Page, useCargar, Stat, Progress, Modal, Field, Segmented, Vacio, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
+import { hoyMX, mesMX } from '../fecha';
 
 interface Cuenta { id: number; nombre: string; tipo_id: number; moneda: string; es_central: boolean; saldo: number }
 interface Categoria { id: number; nombre: string; clase: 'ingreso' | 'gasto'; area_id: number | null }
@@ -16,8 +17,8 @@ interface Dash {
   presupuestos: { id: number; etiqueta: string; gastado: number; limite: number; ratio: number; nivel: string }[];
 }
 
-const hoyMes = () => new Date().toISOString().slice(0, 7);
-const hoyDia = () => new Date().toISOString().slice(0, 10);
+const hoyMes = mesMX;
+const hoyDia = hoyMX;
 type Tab = 'resumen' | 'movimientos' | 'cobrar' | 'deudas';
 type Periodo = 'mes' | 'semana';
 

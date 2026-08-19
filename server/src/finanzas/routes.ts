@@ -82,7 +82,7 @@ finanzasRouter.post('/cuentas', asyncHandler(async (req, res) => {
   const b = z.object({
     nombre: z.string().min(1),
     tipo_id: id,
-    moneda: z.string().optional(),
+    moneda: z.literal('MXN').optional(),
     saldo_inicial: z.coerce.number().optional(),
     es_central: z.boolean().optional(),
   }).parse(req.body);
@@ -93,7 +93,7 @@ finanzasRouter.patch('/cuentas/:id', asyncHandler(async (req, res) => {
   const b = z.object({
     nombre: z.string().min(1).optional(),
     tipo_id: id.optional(),
-    moneda: z.string().optional(),
+    moneda: z.literal('MXN').optional(),
     saldo_inicial: z.coerce.number().optional(),
     es_central: z.boolean().optional(),
     activo: z.boolean().optional(),

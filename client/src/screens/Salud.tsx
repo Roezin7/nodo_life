@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { Page, useCargar, Stat, Segmented, Modal, Field, Vacio, LineChart, confirmar, toast } from '../ui';
 import { Icono } from '../icons';
+import { hoyMX, mesMX } from '../fecha';
 
 interface PesoPunto { fecha: string; peso: number; media_movil: number }
 interface PesoData { serie: PesoPunto[]; ultimo: { fecha: string; peso: number } | null; variacion_periodo: number | null }
@@ -12,7 +13,7 @@ interface DiaCal { fecha: string; entrenado: boolean; tipos: string[] }
 interface Calendario { mes: string; dias: DiaCal[]; offset_inicial: number; total_entrenados: number }
 
 const DOW = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
-const hoyMes = () => new Date().toISOString().slice(0, 7);
+const hoyMes = mesMX;
 
 export default function Salud() {
   const [tab, setTab] = useState<'peso' | 'entrenamientos'>('peso');
@@ -130,7 +131,7 @@ function Entrenamientos() {
 function NuevoEntrenamiento({ tipoId, tipoNombre, onClose, onSaved }: { tipoId: number; tipoNombre: string; onClose: () => void; onSaved: () => void }) {
   const esPesas = /pesas/i.test(tipoNombre);
   const esCorrer = /correr|run/i.test(tipoNombre);
-  const [fecha, setFecha] = useState(() => new Date().toISOString().slice(0, 10));
+  const [fecha, setFecha] = useState(hoyMX);
   const [duracion, setDuracion] = useState('');
   const [notas, setNotas] = useState('');
   const [series, setSeries] = useState<{ ejercicio: string; series: string; reps: string; peso: string }[]>([{ ejercicio: '', series: '', reps: '', peso: '' }]);

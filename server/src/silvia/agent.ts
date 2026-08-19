@@ -25,7 +25,7 @@ Tu trabajo: ayudarlo a avanzar en sus áreas de vida (Dinero, Salud, Trabajo/Pro
 Reglas:
 - USA solo los datos que te doy en el contexto. NUNCA inventes cifras. Si falta un dato, dilo y sugiere capturarlo.
 - En la revisión: evalúa avance vs objetivos, observa patrones (gasto, ahorro, rachas de hábitos, tendencia de peso) y sugiere ajustes. El usuario decide.
-- Si detectas algo relevante y duradero (un patrón, una decisión, una preferencia, el efecto de un cambio), guárdalo con la herramienta recordar_aprendizaje. No guardes trivialidades.
+- No guardes aprendizajes ni cambies datos automáticamente. Si detectas un patrón relevante, sugiere que el usuario lo registre manualmente.
 - Responde en Markdown breve. Usa viñetas para las acciones. Nada de saludos largos ni disculpas.
 
 ## Contexto actual (datos reales de su vida)
@@ -34,21 +34,6 @@ ${contexto}
 ## Memoria (eventos y aprendizajes previos)
 ${memoria || '(todavía no hay memoria registrada)'}`;
 }
-
-const HERRAMIENTAS: Anthropic.Tool[] = [
-  {
-    name: 'recordar_aprendizaje',
-    description:
-      'Guarda un aprendizaje duradero sobre el usuario o su vida para recordarlo en el futuro (un patrón, el efecto de un cambio, una preferencia). Úsalo con moderación.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        contenido: { type: 'string', description: 'El aprendizaje, en una o dos frases claras.' },
-      },
-      required: ['contenido'],
-    },
-  },
-];
 
 export interface RespuestaSilvia {
   texto: string;
@@ -119,10 +104,21 @@ export async function conversar(mensajeUsuario: string): Promise<RespuestaSilvia
   messages.push({ role: 'user', content: mensajeUsuario });
 
   const sys = systemPrompt(contexto, memoriaTxt);
-  const aprendizajes: string[] = [];
-
   try {
-    return await loopHerramientas(cli, sys, messages, aprendizajes);
+    const resp = await cli.messages.create({
+      model: MODELO,
+      max_tokens: 4096,
+      thinking: { type: 'adaptive' },
+      output_config: { effort: 'medium' },
+      system: sys,
+      messages,
+    });
+    const texto = resp.content
+      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n')
+      .trim();
+    return { texto: texto || 'No pude generar una respuesta esta vez.', aprendizajes: [] };
   } catch (e) {
     throw traducirError(e);
   }
@@ -139,49 +135,4 @@ export function traducirError(e: unknown): unknown {
     return new HttpError(502, `La API de Anthropic devolvió un error: ${msg.slice(0, 200)}`);
   }
   return e;
-}
-
-async function loopHerramientas(
-  cli: Anthropic,
-  sys: string,
-  messages: Anthropic.MessageParam[],
-  aprendizajes: string[],
-): Promise<RespuestaSilvia> {
-  for (let i = 0; i < 4; i++) {
-    const resp = await cli.messages.create({
-      model: MODELO,
-      max_tokens: 4096,
-      thinking: { type: 'adaptive' },
-      output_config: { effort: 'medium' },
-      system: sys,
-      tools: HERRAMIENTAS,
-      messages,
-    });
-
-    if (resp.stop_reason === 'tool_use') {
-      messages.push({ role: 'assistant', content: resp.content });
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-      for (const block of resp.content) {
-        if (block.type === 'tool_use' && block.name === 'recordar_aprendizaje') {
-          const contenido = String((block.input as { contenido?: string }).contenido ?? '').trim();
-          if (contenido) {
-            await prisma.silvia_memoria.create({ data: { tipo: 'aprendizaje', contenido } });
-            aprendizajes.push(contenido);
-          }
-          toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Guardado.' });
-        }
-      }
-      messages.push({ role: 'user', content: toolResults });
-      continue;
-    }
-
-    const texto = resp.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('\n')
-      .trim();
-    return { texto: texto || 'No pude generar una respuesta esta vez.', aprendizajes };
-  }
-
-  return { texto: 'Me enredé un poco con tantas vueltas; intenta de nuevo.', aprendizajes };
 }

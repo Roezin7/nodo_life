@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api } from '../api';
 import { useCargar } from '../ui';
 import { Icono } from '../icons';
+import { hoyMX } from '../fecha';
 
 interface Accion {
   tipo: 'gasto' | 'ingreso' | 'peso' | 'habito' | 'entrenamiento' | 'tarea';
@@ -14,7 +15,7 @@ interface Ref { cuentas: { id: number; nombre: string }[]; categorias: { id: num
 interface Tracker { habitos: { id: number; nombre: string }[] }
 interface Tipo { id: number; nombre: string }
 
-const hoyISO = () => new Date().toISOString().slice(0, 10);
+const hoyISO = hoyMX;
 
 const LABELS: Record<Accion['tipo'], string> = {
   gasto: 'Gasto', ingreso: 'Ingreso', peso: 'Peso', habito: 'Hábito', entrenamiento: 'Entrenamiento', tarea: 'Tarea',
@@ -26,6 +27,7 @@ export default function CapturaDraft() {
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState('');
   const [hechas, setHechas] = useState<Set<number>>(new Set());
+  const [confirmando, setConfirmando] = useState<number | null>(null);
 
   const [ref] = useCargar<Ref>(() => api<Ref>('/finanzas/referencias'));
   const [tracker] = useCargar<Tracker>(() => api<Tracker>('/habitos'));
@@ -46,6 +48,8 @@ export default function CapturaDraft() {
   }
 
   async function confirmar(a: Accion, i: number) {
+    if (hechas.has(i) || confirmando === i) return;
+    setConfirmando(i); setError('');
     try {
       if (a.tipo === 'gasto' || a.tipo === 'ingreso') {
         await api('/finanzas/movimientos', { method: 'POST', body: {
@@ -56,15 +60,18 @@ export default function CapturaDraft() {
         } });
       } else if (a.tipo === 'peso') {
         await api('/salud/peso', { method: 'POST', body: { peso: a.peso, fecha: a.fecha ?? undefined } });
-      } else if (a.tipo === 'habito' && a.habito_id) {
+      } else if (a.tipo === 'habito') {
+        if (!a.habito_id) throw new Error('Selecciona el hábito antes de confirmar.');
         await api(`/habitos/${a.habito_id}/registro`, { method: 'POST', body: { completado: true, fecha: a.fecha ?? undefined } });
-      } else if (a.tipo === 'entrenamiento' && a.tipo_entrenamiento_id) {
+      } else if (a.tipo === 'entrenamiento') {
+        if (!a.tipo_entrenamiento_id) throw new Error('Selecciona el tipo de entrenamiento antes de confirmar.');
         await api('/salud/entrenamientos', { method: 'POST', body: { tipo_id: a.tipo_entrenamiento_id, duracion_min: a.duracion_min ?? undefined, notas: a.descripcion ?? undefined, fecha: a.fecha ?? undefined } });
       } else if (a.tipo === 'tarea') {
         await api('/tareas', { method: 'POST', body: { titulo: a.titulo, fecha_vence: a.fecha ?? hoyISO() } });
       }
       setHechas((s) => new Set(s).add(i));
     } catch (e) { setError(e instanceof Error ? e.message : 'Error al confirmar'); }
+    finally { setConfirmando(null); }
   }
 
   return (
@@ -109,8 +116,8 @@ export default function CapturaDraft() {
               <input className="inp" type="date" value={a.fecha ?? hoyISO()} onChange={(e) => actualizar(i, { fecha: e.target.value })} />
             </>
           )}
-          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => confirmar(a, i)} disabled={hechas.has(i)}>
-            {hechas.has(i) ? '✓ Registrado' : 'Confirmar'}
+          <button className="btn-primary" style={{ marginTop: 8 }} onClick={() => void confirmar(a, i)} disabled={hechas.has(i) || confirmando === i}>
+            {hechas.has(i) ? '✓ Registrado' : confirmando === i ? 'Guardando…' : 'Confirmar'}
           </button>
         </div>
       ))}

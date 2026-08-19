@@ -2,6 +2,8 @@
 // Trabajamos las fechas "de calendario" como string YYYY-MM-DD y las columnas
 // @db.Date como medianoche UTC de ese día, para que no se corran por TZ.
 
+import { HttpError } from '../middleware/error.js';
+
 const TZ = 'America/Mexico_City';
 
 /** Fecha de hoy en México como 'YYYY-MM-DD'. */
@@ -26,7 +28,12 @@ export function horaMX(): string {
 
 /** 'YYYY-MM-DD' -> Date a medianoche UTC (para columnas @db.Date). */
 export function fechaDate(iso: string): Date {
-  return new Date(iso + 'T00:00:00Z');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) throw new HttpError(400, 'Fecha inválida; usa YYYY-MM-DD');
+  const d = new Date(iso + 'T00:00:00Z');
+  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== iso) {
+    throw new HttpError(400, 'Fecha inválida; usa una fecha de calendario válida');
+  }
+  return d;
 }
 
 /** Date (@db.Date) -> 'YYYY-MM-DD'. */

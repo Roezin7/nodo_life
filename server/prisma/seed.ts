@@ -3,15 +3,18 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const PIN_INICIAL = process.env.SEED_PIN ?? '1234';
 const NOMBRE = process.env.SEED_NOMBRE ?? 'Arturo';
 
 async function main() {
   // 1) Usuario único (PIN hasheado).
   const total = await prisma.usuario.count();
   if (total === 0) {
+    const PIN_INICIAL = process.env.SEED_PIN ?? (process.env.NODE_ENV === 'production' ? '' : '1234');
+    if (!/^\d{4,12}$/.test(PIN_INICIAL)) {
+      throw new Error('SEED_PIN es obligatorio en producción y debe tener 4–12 dígitos.');
+    }
     await prisma.usuario.create({ data: { nombre: NOMBRE, pin_hash: await bcrypt.hash(PIN_INICIAL, 10) } });
-    console.log(`  + usuario ${NOMBRE} (PIN inicial: ${PIN_INICIAL})`);
+    console.log(`  + usuario ${NOMBRE}`);
   }
 
   // 2) Áreas de vida.

@@ -11,7 +11,9 @@ export interface PendingReq {
   method: string;
   path: string; // sin el prefijo /api
   body?: unknown;
-  token: string | null;
+  // Se conserva opcional solo para leer colas antiguas; nunca se reenvía.
+  token?: string | null;
+  idempotencyKey?: string;
   ts: number;
 }
 
@@ -65,6 +67,15 @@ export async function encolar(req: Omit<PendingReq, 'id' | 'ts'>) {
   await notificar();
 }
 
+async function sanearColaLegacy() {
+  const d = await db();
+  const keys = await d.getAllKeys(STORE);
+  for (const key of keys) {
+    const req = await d.get(STORE, key) as PendingReq | undefined;
+    if (req?.token) await d.put(STORE, { ...req, token: null }, key);
+  }
+}
+
 let sincronizando = false;
 
 /** Reenvía la cola en orden. Se detiene al primer fallo de red (sigue offline). */
@@ -83,8 +94,9 @@ export async function sincronizar(): Promise<void> {
           method: req.method,
           headers: {
             ...(req.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-            ...(req.token ? { Authorization: `Bearer ${req.token}` } : {}),
+            ...(req.idempotencyKey ? { 'Idempotency-Key': req.idempotencyKey } : {}),
           },
+          credentials: 'include',
           body: req.body !== undefined ? JSON.stringify(req.body) : undefined,
         });
         if (!res.ok && res.status >= 500) {
@@ -118,7 +130,7 @@ export function iniciarOffline() {
   window.addEventListener('offline', () => { online = false; void notificar(); });
   // Intento periódico por si el evento 'online' no dispara (algunos navegadores).
   setInterval(() => { if (navigator.onLine) void sincronizar(); }, 15000);
-  void sincronizar();
+  void sanearColaLegacy().then(() => sincronizar()).catch(() => sincronizar());
 }
 
 export const estaOnline = () => online;

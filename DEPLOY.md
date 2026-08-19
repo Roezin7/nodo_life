@@ -46,5 +46,5 @@ npm run dev                          # API :3000 + Vite :5173 (proxy /api)
 ## Notas
 
 - **Offline-first:** las escrituras se encolan en IndexedDB y se sincronizan al reconectar.
-- **IA acotada:** Silvia nunca escribe en tus datos; propone un borrador editable que tú confirmas.
+- **IA acotada:** Silvia no escribe datos de dominio ni aprendizajes automáticamente. Envía el contexto financiero y de salud a Anthropic cuando `ANTHROPIC_API_KEY` está configurada; habilítala solo si aceptas ese tratamiento.
 - **Zona horaria:** America/Mexico_City. **Moneda base:** MXN.
