@@ -7,15 +7,18 @@ interface Pos {
   id: number; ticker: string; nombre: string | null; clase: string; moneda: string;
   cantidad: number; precio_compra_prom: number; precio_actual: number | null;
   costo: number; valor_actual: number | null; pnl: number | null; rendimiento: number | null; valor_mxn: number | null;
+  fuente: string; cuenta_broker: string | null;
 }
 interface Port {
   disponible: boolean; fx_usd_mxn: number | null;
   posiciones: Pos[];
-  totales: { costo_mxn: number; valor_mxn: number; pnl_mxn: number; rendimiento: number };
+  totales: { costo_mxn: number; valor_mxn: number; valor_total_mxn: number; efectivo_broker_mxn: number; pnl_mxn: number; rendimiento: number };
 }
+interface Operacion { id: number; tipo: string; lado: string | null; ticker: string | null; descripcion: string | null; cantidad: number | null; precio: number | null; monto: number | null; comisiones: number | null; moneda: string; fecha: string; cuenta: string | null }
 
 export default function Inversiones() {
   const [p, recargar, cargando, error] = useCargar<Port>(() => api<Port>('/inversiones'));
+  const [operaciones] = useCargar<Operacion[]>(() => api<Operacion[]>('/schwab/operaciones'));
   const [nuevo, setNuevo] = useState(false);
 
   return (
@@ -26,6 +29,7 @@ export default function Inversiones() {
           {!p.disponible && <div className="aviso">Precios no configurados: agrega <b>FINNHUB_API_KEY</b> en el servidor para valuar a mercado. Mientras, ves tu costo.</div>}
           <div className="stat-grid">
             <Stat label="Valor (MXN)" valor={mxn(p.totales.valor_mxn)} />
+            <Stat label="Efectivo Schwab" valor={mxn(p.totales.efectivo_broker_mxn)} />
             <Stat label="Costo (MXN)" valor={mxn(p.totales.costo_mxn)} />
             <Stat label="P&L" valor={mxn(p.totales.pnl_mxn)} sub={pct(p.totales.rendimiento)} color={p.totales.pnl_mxn >= 0 ? 'var(--success)' : 'var(--danger)'} />
             <Stat label="USD/MXN" valor={p.fx_usd_mxn ? p.fx_usd_mxn.toFixed(2) : '—'} />
@@ -34,17 +38,24 @@ export default function Inversiones() {
             {p.posiciones.length === 0 ? <Vacio texto="Sin posiciones. Captura las que tengas." /> : p.posiciones.map((pos) => (
               <div key={pos.id} className="row">
                 <div className="row-main">
-                  <span className="row-title">{pos.ticker} <span className="row-sub">{pos.nombre ?? pos.clase}</span></span>
+                  <span className="row-title">{pos.ticker} <span className="row-sub">{pos.nombre ?? pos.clase} · {pos.fuente === 'schwab' ? `Schwab ${pos.cuenta_broker ?? ''}` : 'Manual'}</span></span>
                   <span className="row-sub">{pos.cantidad} @ {pos.precio_compra_prom} {pos.moneda} · ahora {pos.precio_actual ?? '—'}</span>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <div className="row-amount">{pos.valor_mxn != null ? mxn(pos.valor_mxn) : mxn(pos.costo)}</div>
                   {pos.pnl != null && <div className={`row-sub ${pos.pnl >= 0 ? 'pos' : 'neg'}`}>{pos.pnl >= 0 ? '+' : ''}{pct(pos.rendimiento)}</div>}
                 </div>
-                <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar la posición ${pos.ticker}?`)) { await api(`/inversiones/posiciones/${pos.id}`, { method: 'DELETE' }); toast('Posición borrada'); recargar(); } }}><Icono name="trash" size={15} /></button>
+                {pos.fuente !== 'schwab' && <button className="icon-btn" onClick={async () => { if (await confirmar(`¿Borrar la posición ${pos.ticker}?`)) { await api(`/inversiones/posiciones/${pos.id}`, { method: 'DELETE' }); toast('Posición borrada'); recargar(); } }}><Icono name="trash" size={15} /></button>}
               </div>
             ))}
           </div>
+          {(operaciones ?? []).length > 0 && <div className="card section-gap">
+            <p className="card-title">Últimas operaciones Schwab</p>
+            {operaciones!.slice(0, 30).map((op) => <div key={op.id} className="row">
+              <div className="row-main"><span className="row-title">{op.ticker ?? op.tipo} <span className="row-sub">{op.lado ?? ''} · {op.cuenta ?? ''}</span></span><span className="row-sub">{op.fecha}{op.cantidad != null ? ` · ${op.cantidad} unidades` : ''}{op.precio != null ? ` @ ${op.precio} ${op.moneda}` : ''}</span></div>
+              <span className="row-amount">{op.monto != null ? `${op.monto.toFixed(2)} ${op.moneda}` : '—'}</span>
+            </div>)}
+          </div>}
         </>
       )}
       {nuevo && <NuevaPosicion onClose={() => setNuevo(false)} onSaved={() => { setNuevo(false); recargar(); }} />}

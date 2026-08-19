@@ -16,6 +16,12 @@ const schema = z.object({
   VAPID_PUBLIC_KEY: z.string().optional().default(''),
   VAPID_PRIVATE_KEY: z.string().optional().default(''),
   VAPID_SUBJECT: z.string().optional().default('mailto:nodo@vida.app'),
+  // Schwab Trader API (read-only: no órdenes se envían desde Nodo Vida).
+  SCHWAB_CLIENT_ID: z.string().optional().default(''),
+  SCHWAB_CLIENT_SECRET: z.string().optional().default(''),
+  SCHWAB_REDIRECT_URI: z.string().url().optional().or(z.literal('')).default(''),
+  SCHWAB_TOKEN_ENCRYPTION_KEY: z.string().optional().default(''),
+  SCHWAB_API_BASE_URL: z.string().url().default('https://api.schwabapi.com'),
 });
 
 const parsed = schema.safeParse(process.env);

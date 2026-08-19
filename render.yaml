@@ -25,3 +25,13 @@ services:
         sync: false
       - key: SEED_NOMBRE
         sync: false
+      - key: SCHWAB_CLIENT_ID
+        sync: false
+      - key: SCHWAB_CLIENT_SECRET
+        sync: false
+      - key: SCHWAB_REDIRECT_URI
+        sync: false
+      - key: SCHWAB_TOKEN_ENCRYPTION_KEY
+        sync: false
+      - key: SCHWAB_API_BASE_URL
+        value: https://api.schwabapi.com

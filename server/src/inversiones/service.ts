@@ -33,6 +33,7 @@ export async function crearPosicion(p: PosicionInput) {
 export async function editarPosicion(id: bigint, p: Partial<PosicionInput> & { activo?: boolean }) {
   const existe = await prisma.posiciones.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Posición no encontrada');
+  if (existe.fuente === 'schwab') throw new HttpError(400, 'Las posiciones de Schwab se actualizan desde la sincronización.');
   await prisma.posiciones.update({
     where: { id },
     data: {
@@ -52,6 +53,7 @@ export async function editarPosicion(id: bigint, p: Partial<PosicionInput> & { a
 export async function borrarPosicion(id: bigint) {
   const existe = await prisma.posiciones.findUnique({ where: { id } });
   if (!existe) throw new HttpError(404, 'Posición no encontrada');
+  if (existe.fuente === 'schwab') throw new HttpError(400, 'Las posiciones de Schwab se eliminan al desconectar la cuenta.');
   await prisma.posiciones.delete({ where: { id } });
   return { ok: true };
 }
@@ -61,7 +63,7 @@ export async function borrarPosicion(id: bigint) {
  * rendimiento; convierte USD→MXN para totalizar el aporte al patrimonio.
  */
 export async function portafolio() {
-  const posiciones = await prisma.posiciones.findMany({ where: { activo: true }, orderBy: { ticker: 'asc' } });
+  const posiciones = await prisma.posiciones.findMany({ where: { activo: true }, orderBy: { ticker: 'asc' }, include: { broker_cuenta: { select: { cuenta_mascara: true } } } });
   // Solo cotizamos stocks/ETFs (Finnhub free). Crypto queda listo a futuro (precio null).
   const tickersCotizables = posiciones.filter((p) => p.clase !== 'crypto').map((p) => p.ticker);
   const [precios, fx] = await Promise.all([preciosActuales(tickersCotizables), tasaUsdMxn()]);
@@ -93,10 +95,14 @@ export async function portafolio() {
       pnl: calc.pnl,
       rendimiento: calc.rendimiento,
       valor_mxn,
+      fuente: p.fuente,
+      cuenta_broker: p.broker_cuenta?.cuenta_mascara ?? null,
     };
   });
 
   const pnlMXN = redondear(valorMXN - costoMXN);
+  const brokerCuentas = await prisma.broker_cuentas.findMany({ where: { activo: true }, select: { saldo_efectivo: true, moneda: true } });
+  const efectivoBrokerMXN = redondear(brokerCuentas.reduce((sum, c) => sum + (aMXN(num0(c.saldo_efectivo), c.moneda, fx) ?? 0), 0));
   return {
     disponible: preciosDisponibles(),
     fx_usd_mxn: fx,
@@ -104,6 +110,8 @@ export async function portafolio() {
     totales: {
       costo_mxn: redondear(costoMXN),
       valor_mxn: redondear(valorMXN),
+      valor_total_mxn: redondear(valorMXN + efectivoBrokerMXN),
+      efectivo_broker_mxn: efectivoBrokerMXN,
       pnl_mxn: pnlMXN,
       rendimiento: costoMXN > 0 ? redondear(pnlMXN / costoMXN, 4) : 0,
     },
@@ -113,7 +121,8 @@ export async function portafolio() {
 /** Valor del portafolio en MXN (para el snapshot de patrimonio). 0 si no hay datos. */
 export async function valorPortafolioMXN(): Promise<number> {
   const posiciones = await prisma.posiciones.findMany({ where: { activo: true } });
-  if (posiciones.length === 0) return 0;
+  const brokerCuentas = await prisma.broker_cuentas.findMany({ where: { activo: true }, select: { saldo_efectivo: true, moneda: true } });
+  if (posiciones.length === 0 && brokerCuentas.length === 0) return 0;
   const tickers = posiciones.filter((p) => p.clase !== 'crypto').map((p) => p.ticker);
   const [precios, fx] = await Promise.all([preciosActuales(tickers), tasaUsdMxn()]);
   let total = 0;
@@ -124,5 +133,6 @@ export async function valorPortafolioMXN(): Promise<number> {
     const mxn = aMXN(valor, p.moneda, fx);
     if (mxn != null) total += mxn;
   }
-  return redondear(total);
+  const efectivo = brokerCuentas.reduce((sum, c) => sum + (aMXN(num0(c.saldo_efectivo), c.moneda, fx) ?? 0), 0);
+  return redondear(total + efectivo);
 }

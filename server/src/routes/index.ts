@@ -16,6 +16,7 @@ import { dashboardRouter } from '../revisiones/dashboard.js';
 import { silviaRouter } from '../silvia/routes.js';
 import { pushRouter } from '../push/routes.js';
 import { idempotencyMiddleware } from '../middleware/idempotency.js';
+import { schwabRouter } from '../schwab/routes.js';
 
 export const apiRouter = Router();
 
@@ -46,3 +47,4 @@ apiRouter.use('/revisiones', revisionesRouter); // Fase 8
 apiRouter.use('/dashboard', dashboardRouter); // Fase 8
 apiRouter.use('/silvia', silviaRouter); // Fase 8
 apiRouter.use('/push', pushRouter); // Recordatorios (Web Push)
+apiRouter.use('/schwab', schwabRouter); // Charles Schwab Trader API (solo lectura)

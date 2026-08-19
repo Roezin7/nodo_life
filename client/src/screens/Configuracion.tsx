@@ -17,6 +17,7 @@ export default function Configuracion() {
       <CategoriasCfg />
       <PresupuestosCfg />
       <Ajustes />
+      <SchwabCfg />
       <Recordatorios />
     </Page>
   );
@@ -253,3 +254,53 @@ function Recordatorios() {
   );
 }
 
+interface SchwabEstado {
+  disponible: boolean;
+  conectada: boolean;
+  estado: string;
+  ultimo_sync_at: string | null;
+  ultimo_error: string | null;
+  cuentas: { id: number; cuenta_mascara: string | null; tipo: string | null; moneda: string; saldo_efectivo: number | null; valor_cuenta: number | null; ultimo_sync_at: string | null }[];
+}
+
+function SchwabCfg() {
+  const [estado, recargar, cargando, error] = useCargar<SchwabEstado>(() => api<SchwabEstado>('/schwab/estado'));
+  const [ocupado, setOcupado] = useState(false);
+  async function sincronizar() {
+    setOcupado(true);
+    try { const r = await api<{ cuentas: number; operaciones: number }>('/schwab/sincronizar', { method: 'POST' }); toast(`Schwab sincronizado: ${r.cuentas} cuenta(s), ${r.operaciones} operación(es)`); recargar(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'No pude sincronizar Schwab.', 'error'); }
+    finally { setOcupado(false); }
+  }
+  async function desconectar() {
+    if (!window.confirm('¿Desconectar Schwab y borrar las posiciones sincronizadas?')) return;
+    setOcupado(true);
+    try { await api('/schwab/conexion', { method: 'DELETE' }); toast('Schwab desconectado'); recargar(); }
+    catch (e) { toast(e instanceof Error ? e.message : 'No pude desconectar Schwab.', 'error'); }
+    finally { setOcupado(false); }
+  }
+  return (
+    <Seccion titulo="Charles Schwab">
+      {cargando && <p className="muted">Comprobando conexión…</p>}
+      {error && <p className="error-msg">{error}</p>}
+      {estado && !estado.disponible && <p className="row-sub">La integración aún no está configurada en Coolify. Faltan las credenciales de la Trader API.</p>}
+      {estado?.disponible && !estado.conectada && (
+        <>
+          <p className="row-sub">Conecta Schwab para importar cuentas, posiciones y compras/ventas ejecutadas. Nodo Vida no envía órdenes.</p>
+          <a className="btn-primary" href="/api/schwab/conectar">Conectar con Schwab</a>
+        </>
+      )}
+      {estado?.conectada && (
+        <>
+          <p className="row-sub" style={{ color: 'var(--success)' }}>● Conectada · última sincronización: {estado.ultimo_sync_at ? new Date(estado.ultimo_sync_at).toLocaleString('es-MX') : 'pendiente'}</p>
+          {estado.cuentas.map((c) => <div className="row" key={c.id}><span className="row-title">{c.cuenta_mascara ?? 'Cuenta Schwab'} <span className="row-sub">{c.tipo ?? 'Brokerage'} · {c.moneda}</span></span><span className="row-amount">Efectivo: {c.saldo_efectivo != null ? `${c.saldo_efectivo.toFixed(2)} ${c.moneda}` : '—'}</span></div>)}
+          {estado.ultimo_error && <p className="error-msg">Último error: {estado.ultimo_error}</p>}
+          <div className="btn-row" style={{ marginTop: '0.6rem' }}>
+            <button className="btn-primary" onClick={sincronizar} disabled={ocupado}>Sincronizar ahora</button>
+            <button className="btn-ghost" onClick={desconectar} disabled={ocupado}>Desconectar</button>
+          </div>
+        </>
+      )}
+    </Seccion>
+  );
+}

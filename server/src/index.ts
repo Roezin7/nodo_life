@@ -10,6 +10,7 @@ import { env, isProd } from './env.js';
 import { apiRouter } from './routes/index.js';
 import { errorHandler } from './middleware/error.js';
 import { iniciarScheduler } from './push/scheduler.js';
+import { iniciarScheduler as iniciarSchedulerSchwab } from './schwab/service.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, '../public');
@@ -89,4 +90,5 @@ app.use(errorHandler);
 app.listen(env.PORT, '0.0.0.0', () => {
   console.log(`🌱 Nodo Vida API + PWA escuchando en http://0.0.0.0:${env.PORT}`);
   iniciarScheduler();
+  iniciarSchedulerSchwab();
 });

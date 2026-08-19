@@ -22,6 +22,11 @@ compilada (todo lo demás). No hay frontend separado.
    | `ALLOWED_ORIGINS` | vacío (mismo origen) |
    | `SEED_PIN` | PIN inicial (ej. `1234`) — **cámbialo desde la app** |
    | `SEED_NOMBRE` | tu nombre |
+   | `SCHWAB_CLIENT_ID` | (opcional) App Key de la Trader API |
+   | `SCHWAB_CLIENT_SECRET` | (opcional) secreto de la app; solo en Coolify |
+   | `SCHWAB_REDIRECT_URI` | (opcional) `https://tu-dominio/api/schwab/oauth/callback` |
+   | `SCHWAB_TOKEN_ENCRYPTION_KEY` | (opcional) cadena larga para cifrar tokens OAuth |
+   | `SCHWAB_API_BASE_URL` | `https://api.schwabapi.com` |
 
 5. **Postgres:** crea una base Postgres en Coolify en el mismo proyecto y usa su
    `DATABASE_URL` **interno** (el host es el nombre del servicio, no `localhost`).
@@ -48,3 +53,4 @@ npm run dev                          # API :4000 + Vite :5173 (proxy /api)
 - **Offline-first:** las escrituras se encolan en IndexedDB y se sincronizan al reconectar.
 - **IA acotada:** Silvia no escribe datos de dominio ni aprendizajes automáticamente. Envía el contexto financiero y de salud a Anthropic cuando `ANTHROPIC_API_KEY` está configurada; habilítala solo si aceptas ese tratamiento.
 - **Zona horaria:** America/Mexico_City. **Moneda base:** MXN.
+- **Schwab:** la Trader API sincroniza posiciones, efectivo y operaciones confirmadas en modo solo lectura. El historial de transacciones disponible por API está limitado a una ventana reciente de hasta 60 días; para históricos anteriores habría que importar un CSV de Schwab.
