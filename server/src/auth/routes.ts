@@ -1,14 +1,20 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../db.js';
 import { asyncHandler, HttpError } from '../middleware/error.js';
 import { firmarToken } from './jwt.js';
 import { requireAuth } from './middleware.js';
+import { isProd } from '../env.js';
 
 export const authRouter = Router();
 const COOKIE = 'nodo_vida_session';
-const cookieOptions = { httpOnly: true, sameSite: 'strict' as const, secure: process.env.NODE_ENV === 'production', maxAge: 7 * 86_400_000, path: '/' };
+function cookieOptions(req: Request) {
+  // Coolify puede servir temporalmente por HTTP. `Secure: true` en ese caso
+  // hace que el navegador descarte la cookie y la app queda atrapada en login.
+  // Detrás de HTTPS, Express usa X-Forwarded-Proto gracias a trust proxy.
+  return { httpOnly: true, sameSite: 'strict' as const, secure: isProd && req.secure, maxAge: 7 * 86_400_000, path: '/' };
+}
 
 /** El usuario único (para mostrar el nombre en el login). No expone pin_hash. */
 async function elUsuario() {
@@ -36,13 +42,13 @@ authRouter.post(
       throw new HttpError(401, 'PIN incorrecto');
     }
     const token = firmarToken({ sub: usuario.id.toString(), nombre: usuario.nombre, ver: usuario.sesion_version });
-    res.cookie(COOKIE, token, cookieOptions);
+    res.cookie(COOKIE, token, cookieOptions(req));
     res.json({ usuario: { id: Number(usuario.id), nombre: usuario.nombre } });
   }),
 );
 
-authRouter.post('/logout', asyncHandler(async (_req, res) => {
-  res.clearCookie(COOKIE, cookieOptions);
+authRouter.post('/logout', asyncHandler(async (req, res) => {
+  res.clearCookie(COOKIE, cookieOptions(req));
   res.status(204).end();
 }));
 
@@ -80,7 +86,7 @@ authRouter.post(
       data: { pin_hash: await bcrypt.hash(pin_nuevo, 10), sesion_version: { increment: 1 } },
     });
     const token = firmarToken({ sub: usuario.id.toString(), nombre: usuario.nombre, ver: usuario.sesion_version + 1 });
-    res.cookie(COOKIE, token, cookieOptions);
+    res.cookie(COOKIE, token, cookieOptions(req));
     res.json({ ok: true });
   }),
 );
