@@ -48,7 +48,8 @@ const cash = (c: number | null | undefined, currency = "MXN") =>
     : new Intl.NumberFormat("es-MX", {
         style: "currency",
         currency,
-        maximumFractionDigits: 0,
+        maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
       }).format(c / 100);
 const stamp = (s?: string | null) =>
   s

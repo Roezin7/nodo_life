@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package.json client/package.json
 COPY server/package.json server/package.json
-RUN npm ci
+RUN npm ci --include=dev --no-audit
 COPY client client
 COPY server server
 RUN npm run build
