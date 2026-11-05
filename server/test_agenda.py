@@ -18,6 +18,8 @@ class CalendarTests(unittest.TestCase):
   a=self.event(start='2026-11-06T04:00:00Z',end='2026-11-06T05:00:00Z');b={'id':'holiday','title':'Fecha','start':'2026-11-06','end':'2026-11-07','all_day':True,'category':'meeting','location':''};self.sync([a,b]);self.assertEqual([x['id']for x in self.a.read('2026-11-05',1)['events']],['one']);self.assertEqual([x['id']for x in self.a.read('2026-11-06',1)['events']],['holiday'])
  def test_conflicts_exclude_reminders_and_tests(self):
   a=self.event();b=self.event('two',start='2026-11-05T15:30:00Z',end='2026-11-05T16:30:00Z');c=dict(a,id='reminder',category='reminder');t=dict(a,id='test',category='test');self.sync([a,b,c,t]);d=self.a.read('2026-11-05');self.assertEqual(len(d['conflicts']),1);self.assertEqual(len(d['events']),3)
+ def test_context_includes_last_evening_of_local_week(self):
+  self.sync([self.event(start='2026-11-12T04:30:00Z',end='2026-11-12T04:35:00Z')]);r=self.store.context_get(['agenda'])['records'][0];self.assertEqual(len(json.loads(r['text'])['events']),1)
  def test_invalid_snapshot_does_not_erase(self):
   self.sync([self.event()]);bad=self.event();bad['end']=bad['start']
   with self.assertRaises(ValueError):self.sync([bad])
