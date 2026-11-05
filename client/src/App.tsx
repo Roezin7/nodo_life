@@ -574,64 +574,208 @@ function Tasks() {
   );
 }
 function Agenda() {
-  const [d, reload, loading, error] = useLive<{ tasks: Task[] }>("tasks");
-  return (
-    <Page titulo="Agenda" icono="calendar">
-      <ErrorBox error={error} retry={reload} />
-      <section className="card n-card">
-        <Badge>Seguimientos de Nodo</Badge>
-        <h2>Fechas con un siguiente paso</h2>
+  const [date, setDate] = useState(localDay());
+  const [d, reload, loading, error] = useLive<Data>("agenda", {
+    date,
+    days: 7,
+  });
+  const [tasks] = useLive<{ tasks: Task[] }>("tasks");
+  const end = new Date(`${date}T12:00:00-06:00`);
+  end.setDate(end.getDate() + 7);
+  const endDay = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(end);
+  const sources: Data[] = d?.sources || [];
+  const covered =
+    sources.length > 0 &&
+    sources.every(
+      (s) => s.last_success && date >= s.window_start && endDay <= s.window_end,
+    );
+  const stale = sources.some(
+    (s) =>
+      s.last_error ||
+      !s.last_success ||
+      Date.now() - new Date(s.last_success).getTime() > 15 * 60000,
+  );
+  const events: Data[] = d?.events || [];
+  const meetings = events.filter((e) => e.category === "meeting"),
+    reminders = events.filter((e) => e.category === "reminder");
+  const conflictIds = new Set<string>((d?.conflicts || []).flat());
+  const eventRow = (e: Data) => (
+    <article className="list-row" key={e.id}>
+      <div className="section-head">
+        <Badge>{e.all_day ? "Todo el día" : stamp(e.start)}</Badge>
+        {conflictIds.has(e.id) && <Badge>Coincide con otro evento</Badge>}
+      </div>
+      <h3>{e.title}</h3>
+      {e.all_day ? (
         <p>
-          Son fechas registradas en tareas. Google Calendar y las reuniones no
-          se sincronizan todavía con esta web.
+          {e.start}
+          {e.end !==
+          new Date(new Date(`${e.start}T12:00:00Z`).getTime() + 86400000)
+            .toISOString()
+            .slice(0, 10)
+            ? ` → ${e.end} (fin exclusivo)`
+            : ""}
         </p>
+      ) : (
+        <p>Hasta {stamp(e.end)}</p>
+      )}
+      {e.location && <p className="muted">{e.location}</p>}
+    </article>
+  );
+  return (
+    <Page
+      titulo="Agenda"
+      icono="calendar"
+      accion={
+        <button className="btn-ghost" onClick={reload}>
+          Actualizar vista
+        </button>
+      }
+    >
+      <div className="toolbar">
+        <Field label="Semana desde">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            required
+          />
+        </Field>
+        <button className="btn-ghost" onClick={() => setDate(localDay())}>
+          Hoy
+        </button>
         <a
           className="btn-ghost"
-          href="https://calendar.google.com/calendar/u/0/r/week"
+          href="https://calendar.google.com/calendar/u/0/r/week?authuser=arturohernandezdharak%40gmail.com"
           target="_blank"
           rel="noreferrer"
         >
           Abrir Google Calendar ↗
         </a>
-      </section>
+      </div>
+      <ErrorBox error={error} retry={reload} />
       {!d ? (
         loading ? (
           <Loading />
         ) : null
       ) : (
-        <div className="two-cols">
-          <section className="card n-card">
-            <h2>Con fecha</h2>
-            {d.tasks
-              .filter(
-                (t) => t.review_at && ["open", "waiting"].includes(t.status),
-              )
-              .map((t) => (
-                <div className="list-row" key={t.id}>
-                  <small>{stamp(t.review_at)}</small>
-                  <h3>{t.title}</h3>
-                  <p>{t.next_action}</p>
+        <>
+          <section className="day-hero">
+            <div>
+              <p className="eyebrow">GOOGLE CALENDAR · LECTURA PRIVADA</p>
+              <h2>Tu semana, en contexto.</h2>
+              <p>
+                Eventos de tu calendario principal, junto a los siguientes pasos
+                de Nodo.
+              </p>
+              {sources.map((s) => (
+                <div key={s.id}>
+                  <Evidence
+                    source={`${s.name} · última consulta correcta ${stamp(s.last_success)}`}
+                  />
+                  {s.last_error && (
+                    <p className="error-text" role="status">
+                      {s.last_error}
+                    </p>
+                  )}
                 </div>
               ))}
-            {!d.tasks.some(
-              (t) => t.review_at && ["open", "waiting"].includes(t.status),
-            ) && <Empty>No hay seguimientos activos con fecha.</Empty>}
+              {!sources.length && (
+                <p>
+                  Conexión pendiente de la primera consulta. La ausencia de
+                  eventos todavía no confirma una agenda vacía.
+                </p>
+              )}
+            </div>
+            <NodoIsotipo size={72} />
           </section>
-          <section className="card n-card">
-            <h2>Sin fecha</h2>
-            {d.tasks
-              .filter(
-                (t) => !t.review_at && ["open", "waiting"].includes(t.status),
-              )
-              .map((t) => (
-                <div className="list-row" key={t.id}>
-                  <h3>{t.title}</h3>
-                  <p>{t.next_action}</p>
-                </div>
-              ))}
-            <Link to="/tareas">Organizar pendientes →</Link>
-          </section>
-        </div>
+          {stale && (
+            <p className="notice">
+              La copia no está actualizada o no pudo comprobarse. Consulta
+              Google antes de tomar decisiones de horario.
+            </p>
+          )}
+          {!covered && (
+            <p className="notice">
+              Esta semana no está completamente cubierta por la copia
+              sincronizada. No interpretes una lista vacía como disponibilidad.
+            </p>
+          )}
+          {d.conflicts.length > 0 && (
+            <p className="notice">
+              Hay {d.conflicts.length} coincidencia(s) de horario entre eventos.
+              No se movió ninguna cita.
+            </p>
+          )}
+          <div className="two-cols">
+            <section className="card n-card">
+              <div className="section-head">
+                <h2>Eventos del calendario</h2>
+                <Badge>{meetings.length}</Badge>
+              </div>
+              {meetings.map(eventRow)}
+              {!meetings.length && (
+                <Empty>
+                  {covered && !stale
+                    ? "No hay citas en los próximos siete días de esta copia."
+                    : "No hay eventos disponibles en la copia para este rango."}
+                </Empty>
+              )}
+            </section>
+            <section className="card n-card">
+              <h2>Seguimientos de Nodo</h2>
+              {(tasks?.tasks || [])
+                .filter((t) => ["open", "waiting"].includes(t.status))
+                .map((t) => (
+                  <article className="list-row" key={t.id}>
+                    <Badge>{projectLabels[t.project]}</Badge>
+                    <h3>{t.title}</h3>
+                    <p>{t.next_action}</p>
+                    <small>{stamp(t.review_at)}</small>
+                  </article>
+                ))}
+              {tasks &&
+                !tasks.tasks.some((t) =>
+                  ["open", "waiting"].includes(t.status),
+                ) && <Empty>No hay seguimientos activos registrados.</Empty>}
+              <Link to="/tareas">Organizar pendientes →</Link>
+            </section>
+          </div>
+          <details className="card n-card">
+            <summary>Efemérides · {observances.length}</summary>
+            {observances.map(eventRow)}
+            {!observances.length && (
+              <Empty>No hay efemérides importadas en esta semana.</Empty>
+            )}
+          </details>
+          <details className="card n-card">
+            <summary>
+              Rutinas y recordatorios de calendario · {reminders.length}
+            </summary>
+            {reminders.map(eventRow)}
+            {!reminders.length && (
+              <Empty>No hay recordatorios importados en esta semana.</Empty>
+            )}
+          </details>
+          <p className="muted">
+            Actualización automática cada cinco minutos desde Hetzner. Google
+            puede demorar la publicación de cambios. Sólo lectura: los cambios y
+            avisos se gestionan en Google Calendar o mediante el chat; aquí no
+            se crean reuniones ni notificaciones. Las pruebas de aviso quedan
+            fuera.
+          </p>
+          {d.truncated && (
+            <p className="notice">
+              Hay más eventos de los que caben en esta vista. Abre Google para
+              la lista completa.
+            </p>
+          )}
+        </>
       )}
     </Page>
   );
@@ -1550,7 +1694,40 @@ function System() {
             </div>
             <NodoIsotipo size={80} />
           </section>
-          <section className="card n-card"><h2>Último estado operativo conocido</h2>{d.operational ? <><p>Servicio Nodo: <strong>{d.operational.backend_service}</strong></p><p>Último respaldo cifrado correcto: <strong>{stamp(d.operational.backup?.completed_at_utc)}</strong></p><p>{d.operational.backup?.snapshot_restore_before_wrapping_verified ? 'Instantánea restaurada y verificada antes de cifrar.' : 'Restauración de esta copia no confirmada.'}</p><p>{d.operational.backup?.offsite ? 'Copia externa registrada.' : 'Copia en el mismo servidor; destino externo pendiente.'}</p><Evidence source={`Estado revisado ${stamp(d.operational.checked_at)}`}/><p className="muted">{d.operational.scope}</p></> : <p>Estado de respaldos no disponible en esta instalación.</p>}</section>
+          <section className="card n-card">
+            <h2>Último estado operativo conocido</h2>
+            {d.operational ? (
+              <>
+                <p>
+                  Servicio Nodo:{" "}
+                  <strong>{d.operational.backend_service}</strong>
+                </p>
+                <p>
+                  Último respaldo cifrado correcto:{" "}
+                  <strong>
+                    {stamp(d.operational.backup?.completed_at_utc)}
+                  </strong>
+                </p>
+                <p>
+                  {d.operational.backup
+                    ?.snapshot_restore_before_wrapping_verified
+                    ? "Instantánea restaurada y verificada antes de cifrar."
+                    : "Restauración de esta copia no confirmada."}
+                </p>
+                <p>
+                  {d.operational.backup?.offsite
+                    ? "Copia externa registrada."
+                    : "Copia en el mismo servidor; destino externo pendiente."}
+                </p>
+                <Evidence
+                  source={`Estado revisado ${stamp(d.operational.checked_at)}`}
+                />
+                <p className="muted">{d.operational.scope}</p>
+              </>
+            ) : (
+              <p>Estado de respaldos no disponible en esta instalación.</p>
+            )}
+          </section>
           <div className="two-cols">
             {[
               ["Base", d.storage],

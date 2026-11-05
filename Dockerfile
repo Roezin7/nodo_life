@@ -17,6 +17,7 @@ RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/public ./public
 COPY server/web_bridge.py ./web_bridge.py
+COPY server/calendar_store.py ./calendar_store.py
 ENV NODE_ENV=production PORT=4000 PYTHONDONTWRITEBYTECODE=1
 USER 996:986
 EXPOSE 4000

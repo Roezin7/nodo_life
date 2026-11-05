@@ -1,3 +1,4 @@
+import { startCalendarSync } from "./calendar.js";
 import express from "express";
 import helmet from "helmet";
 import compression from "compression";
@@ -139,6 +140,7 @@ app.use(
 );
 const reads = new Set([
   "overview",
+  "agenda",
   "tasks",
   "health",
   "health.trend",
@@ -226,6 +228,7 @@ app.use(
     res.status(400).json({ error: "Solicitud inválida" });
   },
 );
-app.listen(Number(process.env.PORT || 4000), "0.0.0.0", () =>
-  console.log("Nodo Vida 1.0 listo"),
-);
+app.listen(Number(process.env.PORT || 4000), "0.0.0.0", () => {
+  console.log("Nodo Vida 1.1 listo");
+  startCalendarSync();
+});
