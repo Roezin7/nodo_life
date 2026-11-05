@@ -49,7 +49,7 @@ const cash = (c: number | null | undefined, currency = "MXN") =>
         style: "currency",
         currency,
         maximumFractionDigits: 2,
-    minimumFractionDigits: 0,
+        minimumFractionDigits: 0,
       }).format(c / 100);
 const stamp = (s?: string | null) =>
   s
@@ -1550,6 +1550,7 @@ function System() {
             </div>
             <NodoIsotipo size={80} />
           </section>
+          <section className="card n-card"><h2>Último estado operativo conocido</h2>{d.operational ? <><p>Servicio Nodo: <strong>{d.operational.backend_service}</strong></p><p>Último respaldo cifrado correcto: <strong>{stamp(d.operational.backup?.completed_at_utc)}</strong></p><p>{d.operational.backup?.snapshot_restore_before_wrapping_verified ? 'Instantánea restaurada y verificada antes de cifrar.' : 'Restauración de esta copia no confirmada.'}</p><p>{d.operational.backup?.offsite ? 'Copia externa registrada.' : 'Copia en el mismo servidor; destino externo pendiente.'}</p><Evidence source={`Estado revisado ${stamp(d.operational.checked_at)}`}/><p className="muted">{d.operational.scope}</p></> : <p>Estado de respaldos no disponible en esta instalación.</p>}</section>
           <div className="two-cols">
             {[
               ["Base", d.storage],

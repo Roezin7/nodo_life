@@ -40,7 +40,11 @@ def execute(op,p):
   if op=='memory':return store.context_get([p.get('domain','continuidad')],50)
   if op=='memory.propose':return store.memory_propose(p['record_id'],p['expected_version'],p['text'],source,p['request_id'])
   if op=='system':
-   return {'version':'1.0.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Los vencimientos de tareas son documentales; Google Calendar aún no está conectado a esta web.','notifications':'No se han activado nuevas notificaciones push en esta web. Se conservan los canales y automatizaciones existentes.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
+   try:
+    from pathlib import Path
+    operational=json.loads(Path('/status/operational.json').read_text())
+   except (OSError,ValueError):operational=None
+   return {'operational':operational,'version':'1.0.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Los vencimientos de tareas son documentales; Google Calendar aún no está conectado a esta web.','notifications':'No se han activado nuevas notificaciones push en esta web. Se conservan los canales y automatizaciones existentes.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
   raise ValueError('Operación no admitida')
  finally:store.close()
 
