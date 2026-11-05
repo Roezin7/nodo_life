@@ -603,6 +603,7 @@ function Agenda() {
   const events: Data[] = d?.events || [];
   const meetings = events.filter((e) => e.category === "meeting"),
     reminders = events.filter((e) => e.category === "reminder");
+  const observances = events.filter((e) => e.category === "observance");
   const conflictIds = new Set<string>((d?.conflicts || []).flat());
   const eventRow = (e: Data) => (
     <article className="list-row" key={e.id}>
