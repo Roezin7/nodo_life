@@ -9,3 +9,7 @@ client/dev-dist
 **/.env
 *.log
 .DS_Store
+
+**/.env.*
+.claude
+**/__pycache__

@@ -1,56 +1,7 @@
-# Deploy de Nodo Vida (Coolify — un solo servicio)
+# Despliegue y recuperación
 
-Nodo Vida es **un solo servicio**: el servidor Node sirve la API (`/api/*`) **y** la PWA
-compilada (todo lo demás). No hay frontend separado.
+Recurso existente Coolify NODO Vida, repositorio Roezin7/nodo_life, main, Dockerfile raíz, puerto4000. Necesita los montajes y variables descritos en README. No reactivar PostgreSQL ni ejecutar comandos Prisma antiguos.
 
-## Coolify
+Archivo anterior del volumen: /opt/nodo-vida/legacy/postgres-original.tar, privado del host. Código anterior: commit9be2291. Configuración Coolify anterior respaldada privadamente antes de modificarla. Revertir exige volver al código/configuración anteriores de forma coordinada; no conectar el código antiguo a la base canónica.
 
-1. **Nuevo recurso → Application → desde tu repositorio Git** (o Dockerfile).
-2. **Build Pack: Dockerfile** (el `Dockerfile` en la raíz ya está listo).
-   - Hace `npm ci`, `prisma generate`, build de client→`server/public` y server→`server/dist`.
-   - Al arrancar: `prisma migrate deploy` + seed idempotente + `npm start`.
-3. **Puerto:** 4000. **Health check:** `/api/health`.
-4. **Environment Variables** (pégalas en Coolify; el `.env` local NO entra a la imagen):
-
-   | Variable | Valor |
-   |---|---|
-   | `DATABASE_URL` | tu Postgres de Coolify (interno: `postgres://postgres:…@<host-interno>:5432/postgres`) |
-   | `JWT_SECRET` | cadena larga aleatoria (≥16 chars) |
-   | `NODE_ENV` | `production` |
-   | `ANTHROPIC_API_KEY` | (opcional) habilita a Silvia y la captura asistida |
-   | `FINNHUB_API_KEY` | (opcional) valúa inversiones a mercado |
-   | `ALLOWED_ORIGINS` | vacío (mismo origen) |
-   | `SEED_PIN` | PIN inicial (ej. `1234`) — **cámbialo desde la app** |
-   | `SEED_NOMBRE` | tu nombre |
-   | `SCHWAB_CLIENT_ID` | (opcional) App Key de la Trader API |
-   | `SCHWAB_CLIENT_SECRET` | (opcional) secreto de la app; solo en Coolify |
-   | `SCHWAB_REDIRECT_URI` | (opcional) `https://tu-dominio/api/schwab/oauth/callback` |
-   | `SCHWAB_TOKEN_ENCRYPTION_KEY` | (opcional) cadena larga para cifrar tokens OAuth |
-   | `SCHWAB_API_BASE_URL` | `https://api.schwabapi.com` |
-
-5. **Postgres:** crea una base Postgres en Coolify en el mismo proyecto y usa su
-   `DATABASE_URL` **interno** (el host es el nombre del servicio, no `localhost`).
-
-## Primer login
-
-Tras el primer arranque, el seed crea: el usuario único (PIN = `SEED_PIN`), las 4 áreas
-de vida, tipos de cuenta + cuentas iniciales (Banco/Efectivo/Inversiones), categorías y
-los tipos de entrenamiento (Pesas/Correr/HIIT). Entra con el PIN y cámbialo en
-**Configuración → Perfil**.
-
-## Local
-
-```bash
-cp server/.env.example server/.env   # rellena DATABASE_URL y JWT_SECRET
-npm install
-npm run prisma:migrate -w server     # o prisma migrate deploy si ya hay migraciones
-npm run seed
-npm run dev                          # API :4000 + Vite :5173 (proxy /api)
-```
-
-## Notas
-
-- **Offline-first:** las escrituras se encolan en IndexedDB y se sincronizan al reconectar.
-- **IA acotada:** Silvia no escribe datos de dominio ni aprendizajes automáticamente. Envía el contexto financiero y de salud a Anthropic cuando `ANTHROPIC_API_KEY` está configurada; habilítala solo si aceptas ese tratamiento.
-- **Zona horaria:** America/Mexico_City. **Moneda base:** MXN.
-- **Schwab:** la Trader API sincroniza posiciones, efectivo y operaciones confirmadas en modo solo lectura. El historial de transacciones disponible por API está limitado a una ventana reciente de hasta 60 días; para históricos anteriores habría que importar un CSV de Schwab.
+No hacer rollback del archivo SQLite para revertir una interfaz: perdería registros añadidos desde el chat. Hacer respaldo consistente de la base antes de intervenir. Claves no forman parte del repositorio ni de la imagen.

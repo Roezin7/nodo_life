@@ -1,52 +1,48 @@
-import { type ReactNode, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from './auth';
-import { useTema } from './theme';
-import { Icono } from './icons';
-import { useOffline } from './offline';
-import NodoIsotipo from './brand/NodoIsotipo';
+import { type ReactNode, useState } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import { useAuth } from "./auth";
+import { useTema } from "./theme";
+import { Icono } from "./icons";
+import { useEffect } from "react";
+import NodoIsotipo from "./brand/NodoIsotipo";
 
 interface Item {
   ruta: string;
   label: string;
-  icono: Parameters<typeof Icono>[0]['name'];
+  icono: Parameters<typeof Icono>[0]["name"];
 }
 
 const ITEMS: Item[] = [
-  { ruta: '/', label: 'Inicio', icono: 'home' },
-  { ruta: '/finanzas', label: 'Dinero', icono: 'wallet' },
-  { ruta: '/inversiones', label: 'Inversiones', icono: 'trending' },
-  { ruta: '/patrimonio', label: 'Patrimonio', icono: 'growth' },
-  { ruta: '/salud', label: 'Salud', icono: 'heart' },
-  { ruta: '/habitos', label: 'Hábitos', icono: 'repeat' },
-  { ruta: '/tareas', label: 'Tareas', icono: 'checks' },
-  { ruta: '/objetivos', label: 'Objetivos', icono: 'target' },
-  { ruta: '/revisiones', label: 'Revisiones', icono: 'calendar' },
-  { ruta: '/configuracion', label: 'Configuración', icono: 'settings' },
+  { ruta: "/", label: "Hoy", icono: "home" },
+  { ruta: "/tareas", label: "Tareas", icono: "checks" },
+  { ruta: "/agenda", label: "Agenda", icono: "calendar" },
+  { ruta: "/finanzas", label: "Dinero", icono: "wallet" },
+  { ruta: "/salud", label: "Salud", icono: "heart" },
+  { ruta: "/memoria", label: "Memoria", icono: "target" },
+  { ruta: "/sistema", label: "Sistema", icono: "settings" },
 ];
-
-// Solo algunos en la barra inferior móvil (las más usadas).
-const BOTTOM = ['/', '/finanzas', '/habitos', '/tareas'];
+const BOTTOM = ["/", "/tareas", "/finanzas", "/salud"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const { usuario, logout } = useAuth();
   const { tema, alternar } = useTema();
-  const { online, pendientes, sincronizar } = useOffline();
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
   const [masOpen, setMasOpen] = useState(false);
   const { pathname } = useLocation();
 
-  const syncChip = !online ? (
-    <span className="ctx-chip ctx-chip--off">
-      <span className="dot-status" /> Sin conexión
-      {pendientes > 0 && <span>· {pendientes}</span>}
-    </span>
-  ) : pendientes > 0 ? (
-    <span className="ctx-chip ctx-chip--sync" onClick={() => void sincronizar()}>
-      <span className="dot-status" /> Sincronizando {pendientes}
-    </span>
-  ) : (
-    <span className="ctx-chip">
-      <span className="dot-status" /> En línea
+  const syncChip = (
+    <span className={`ctx-chip ${!online ? "ctx-chip--off" : ""}`}>
+      <span className="dot-status" />
+      {online ? "Base compartida" : "Sin conexión · sin guardar"}
     </span>
   );
 
@@ -57,18 +53,23 @@ export default function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#contenido">
+        Ir al contenido
+      </a>
       <aside className="nav-rail">
         <div className="nav-brand">
           <NodoIsotipo size={30} />
           <span className="nav-wordmark">NODO VIDA</span>
         </div>
-        <nav className="nav-links">
+        <nav className="nav-links" aria-label="Secciones">
           {ITEMS.map((i) => (
             <NavLink
               key={i.ruta}
               to={i.ruta}
-              end={i.ruta === '/'}
-              className={({ isActive }) => (isActive ? 'nav-link nav-link--on' : 'nav-link')}
+              end={i.ruta === "/"}
+              className={({ isActive }) =>
+                isActive ? "nav-link nav-link--on" : "nav-link"
+              }
             >
               <Icono name={i.icono} size={20} />
               <span>{i.label}</span>
@@ -77,8 +78,8 @@ export default function Shell({ children }: { children: ReactNode }) {
         </nav>
         <div className="nav-foot">
           <button className="nav-link" onClick={alternar}>
-            <Icono name={tema === 'dark' ? 'sun' : 'moon'} size={20} />
-            <span>{tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+            <Icono name={tema === "dark" ? "sun" : "moon"} size={20} />
+            <span>{tema === "dark" ? "Modo claro" : "Modo oscuro"}</span>
           </button>
           <button className="nav-link" onClick={logout}>
             <Icono name="logout" size={20} />
@@ -95,13 +96,20 @@ export default function Shell({ children }: { children: ReactNode }) {
           </div>
           <div className="ctx-right">
             {syncChip}
-            <button className="icon-btn" onClick={alternar} aria-label="Cambiar tema" title="Cambiar tema">
-              <Icono name={tema === 'dark' ? 'sun' : 'moon'} size={18} />
+            <button
+              className="icon-btn"
+              onClick={alternar}
+              aria-label="Cambiar tema"
+              title="Cambiar tema"
+            >
+              <Icono name={tema === "dark" ? "sun" : "moon"} size={18} />
             </button>
           </div>
         </header>
 
-        <main className="content">{children}</main>
+        <main id="contenido" className="content">
+          {children}
+        </main>
       </div>
 
       {masOpen && (
@@ -113,9 +121,11 @@ export default function Shell({ children }: { children: ReactNode }) {
                 <NavLink
                   key={i.ruta}
                   to={i.ruta}
-                  end={i.ruta === '/'}
+                  end={i.ruta === "/"}
                   onClick={() => setMasOpen(false)}
-                  className={({ isActive }) => (isActive ? 'more-link more-link--on' : 'more-link')}
+                  className={({ isActive }) =>
+                    isActive ? "more-link more-link--on" : "more-link"
+                  }
                 >
                   <Icono name={i.icono} size={22} />
                   <span>{i.label}</span>
@@ -123,9 +133,14 @@ export default function Shell({ children }: { children: ReactNode }) {
               ))}
             </div>
             <div className="more-foot">
-              <button className="more-link" onClick={() => { alternar(); }}>
-                <Icono name={tema === 'dark' ? 'sun' : 'moon'} size={22} />
-                <span>{tema === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+              <button
+                className="more-link"
+                onClick={() => {
+                  alternar();
+                }}
+              >
+                <Icono name={tema === "dark" ? "sun" : "moon"} size={22} />
+                <span>{tema === "dark" ? "Modo claro" : "Modo oscuro"}</span>
               </button>
               <button className="more-link" onClick={logout}>
                 <Icono name="logout" size={22} />
@@ -136,21 +151,23 @@ export default function Shell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav" aria-label="Secciones móviles">
         {bottomItems.map((i) => (
           <NavLink
             key={i.ruta}
             to={i.ruta}
-            end={i.ruta === '/'}
+            end={i.ruta === "/"}
             onClick={() => setMasOpen(false)}
-            className={({ isActive }) => (isActive ? 'bottom-link bottom-link--on' : 'bottom-link')}
+            className={({ isActive }) =>
+              isActive ? "bottom-link bottom-link--on" : "bottom-link"
+            }
           >
             <Icono name={i.icono} size={22} />
             <span>{i.label}</span>
           </NavLink>
         ))}
         <button
-          className={`bottom-link ${masActivo || masOpen ? 'bottom-link--on' : ''}`}
+          className={`bottom-link ${masActivo || masOpen ? "bottom-link--on" : ""}`}
           onClick={() => setMasOpen((v) => !v)}
           aria-label="Más secciones"
         >

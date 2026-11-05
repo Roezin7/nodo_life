@@ -30,7 +30,7 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
         // Inyecta los manejadores de Web Push (push / notificationclick) en el SW generado.
-        importScripts: ['push-sw.js'],
+
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
@@ -48,7 +48,7 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': 'http://localhost:4000',
     },
   },
 });

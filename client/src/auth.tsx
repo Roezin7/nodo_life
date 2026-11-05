@@ -1,54 +1,50 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { api } from './api';
-
-export interface Usuario {
-  id: number;
-  nombre: string;
-}
-
-interface AuthCtx {
-  usuario: Usuario | null;
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import { api } from "./api";
+type User = { id: number; nombre: string };
+const Context = createContext<{
+  usuario: User | null;
   cargando: boolean;
   login: (pin: string) => Promise<void>;
   logout: () => void;
-  setNombre: (nombre: string) => void;
-}
-
-const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx);
-
+}>(null!);
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
-  const [cargando, setCargando] = useState(true);
-
+  const [usuario, setUsuario] = useState<User | null>(null),
+    [cargando, setCargando] = useState(true);
   useEffect(() => {
-    api<Usuario>('/auth/me')
+    api<User>("/auth/me")
       .then(setUsuario)
       .catch(() => setUsuario(null))
       .finally(() => setCargando(false));
+    const off = () => setUsuario(null);
+    window.addEventListener("nodo:unauthorized", off);
+    return () => window.removeEventListener("nodo:unauthorized", off);
   }, []);
-
   async function login(pin: string) {
-    const { usuario } = await api<{ usuario: Usuario }>('/auth/login', {
-      method: 'POST',
+    const r = await api<{ usuario: User }>("/auth/login", {
+      method: "POST",
       body: { pin },
       auth: false,
     });
-    setUsuario(usuario);
+    setUsuario(r.usuario);
   }
-
-  function logout() {
-    void (async () => {
-      await api('/silvia/historial', { method: 'DELETE' }).catch(() => {});
-      await api('/auth/logout', { method: 'POST' }).catch(() => {});
+  async function logout() {
+    try {
+      await api("/auth/logout", { method: "POST" });
       setUsuario(null);
-    })();
+    } catch {
+      window.alert("No se pudo cerrar sesión. Reintenta.");
+    }
   }
-
-  function setNombre(nombre: string) {
-    setUsuario((u) => (u ? { ...u, nombre } : u));
-  }
-
-  return <Ctx.Provider value={{ usuario, cargando, login, logout, setNombre }}>{children}</Ctx.Provider>;
+  return (
+    <Context.Provider value={{ usuario, cargando, login, logout }}>
+      {children}
+    </Context.Provider>
+  );
 }
-
-export const useAuth = () => useContext(Ctx);
+export const useAuth = () => useContext(Context);

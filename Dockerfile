@@ -1,29 +1,24 @@
-# Nodo Vida — imagen de un solo servicio (API + PWA).
-# Debian slim (no Alpine) para evitar problemas de Prisma con musl/openssl.
-FROM node:22-slim
-
-RUN apt-get update -y && apt-get install -y openssl ca-certificates curl && rm -rf /var/lib/apt/lists/*
-
+FROM node:22-bookworm-slim AS build
 WORKDIR /app
-
-# 1) Manifests primero (mejor caché de capas). Instala TODAS las deps INCLUYENDO dev
-#    (vite, tsc y el CLI de prisma hacen falta para build). --include=dev fuerza su
-#    instalación aunque el entorno traiga NODE_ENV=production (caso de Coolify).
 COPY package*.json ./
-COPY server/package.json server/package.json
 COPY client/package.json client/package.json
-RUN npm ci --include=dev
-
-# 2) Código y build: prisma generate + (client -> server/public, server -> server/dist)
-COPY . .
-RUN npm run prisma:generate -w server && npm run build
-
-ENV NODE_ENV=production
-ENV PORT=4000
+COPY server/package.json server/package.json
+RUN npm ci
+COPY client client
+COPY server server
+RUN npm run build
+FROM node:22-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends python3 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY package*.json ./
+COPY client/package.json client/package.json
+COPY server/package.json server/package.json
+RUN npm ci --omit=dev && npm cache clean --force
+COPY --from=build /app/server/dist ./dist
+COPY --from=build /app/server/public ./public
+COPY server/web_bridge.py ./web_bridge.py
+ENV NODE_ENV=production PORT=4000 PYTHONDONTWRITEBYTECODE=1
+USER 996:986
 EXPOSE 4000
-
-HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD curl -fsS http://localhost:4000/api/health || exit 1
-
-# Aplica migraciones, siembra (idempotente: usuario + áreas + catálogos) y arranca.
-CMD ["sh", "-c", "npx --workspace server prisma migrate deploy && npm run seed -w server && npm start"]
+HEALTHCHECK --interval=30s --timeout=5s CMD node -e "fetch('http://127.0.0.1:4000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+CMD ["node","dist/index.js"]
