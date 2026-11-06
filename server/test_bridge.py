@@ -37,4 +37,15 @@ class Integration(unittest.TestCase):
   self.call('health.correct',record_id=a['id'],expected_version=1,event_date='2026-11-05',data={'kg':79.9},request_id=self.key())
   self.assertEqual(Health(self.store).health_day('2026-11-05')['records'][0]['data']['kg'],79.9)
   with self.assertRaises(ValueError):self.call('health.correct',record_id=a['id'],expected_version=1,event_date='2026-11-05',data={'kg':77},request_id=self.key())
+
+
+ def test_notifications_share_due_reminder_and_ack(self):
+  from reminders import Reminders
+  r=Reminders(self.store);x=r.reminder_create('iberico','Prueba','2026-11-05T12:00:00-06:00',[{'at':'2026-11-05T11:00:00-06:00','message':'Prueba'}],'Prueba',self.key())['reminder']
+  self.assertEqual(self.call('notifications')['items'],[])
+  r.tick('2026-11-05T11:00:00-06:00');a=self.call('notifications')['items'][0]
+  self.call('notification.ack',notice_id=a['id'],request_id=self.key())
+  self.assertIsNotNone(self.call('notifications')['items'][0]['acknowledged_at'])
+  self.assertEqual(r.reminder_get(x['id'])['reminder']['status'],'open')
+
 if __name__=='__main__':unittest.main()

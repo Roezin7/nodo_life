@@ -176,6 +176,42 @@ function Login() {
     </main>
   );
 }
+
+function Notifications() {
+ const [d,reload,loading,error]=useLive<Data>("notifications");
+ const [busy,setBusy]=useState<string|null>(null);
+ const [ackError,setAckError]=useState<string|null>(null);
+ const requests=useRef<Record<string,string>>({});
+ async function ack(id:string){
+  setBusy(id);setAckError(null);requests.current[id] ||= crypto.randomUUID();
+  try {await mutate("notification.ack",{notice_id:id},requests.current[id]);reload();}
+  catch(e){setAckError((e as Error).message)}finally{setBusy(null)}
+ }
+ return <Page titulo="Avisos" icono="checks" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
+  <p>Recordatorios y resultados de Nodo. «Visto» confirma lectura; no termina tareas ni aprueba cambios.</p>
+  <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. La entrega de notificaciones al teléfono sigue sin comprobarse.</p>
+  <ErrorBox error={error || ackError} retry={reload}/>
+  {!d ? loading && <Loading/> : <>
+   <section><h2>Para revisar</h2>
+    {!d.items.length && <p>No hay avisos disponibles. Los próximos recordatorios aparecen abajo.</p>}
+    {d.items.map((n:Data)=><article className="card" key={n.id}>
+     <h3>{n.title}</h3><p>{n.message || n.summary}</p>
+     <small>{n.kind === "job" ? "Resultado de encargo" : "Recordatorio"} · {stamp(n.at || n.created_at)}</small>
+     {n.acknowledged_at ? <p>Visto · {stamp(n.acknowledged_at)}</p> : <p><button className="btn-primary" disabled={busy!==null} onClick={()=>ack(n.id)}>{busy===n.id ? "Guardando…" : "Marcar como visto"}</button></p>}
+     {n.kind === "job" && <p>La revisión técnica continúa desde el chat diario. Este botón no integra ni despliega código.</p>}
+    </article>)}
+    {d.truncated && <p>Hay más avisos de los que muestra esta consulta.</p>}
+   </section>
+   <section><h2>Recordatorios registrados</h2>
+    {!d.reminders.reminders.length && <p>No hay recordatorios abiertos registrados.</p>}
+    {d.reminders.reminders.map((r:Data)=><article className="card" key={r.id}><h3>{r.title}</h3><p>{stamp(r.event_at)}</p>
+     {r.alerts.map((a:Data)=><p key={a.id}>{stamp(a.at)} · {a.message} · {({scheduled:"Programado en Nodo",external_scheduled:"Aviso externo existente",available:"Disponible para leer",acknowledged:"Visto",cancelled:"Cancelado"} as Data)[a.state] || a.state}</p>)}
+    </article>)}
+   </section>
+  </>}
+ </Page>
+}
+
 function Home() {
   const [d, reload, loading, error] = useLive<Data>("overview");
   return (
@@ -206,6 +242,7 @@ function Home() {
             </div>
             <NodoIsotipo size={92} />
           </section>
+          <div className="card"><Link to="/avisos">Ver avisos y resultados</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
           <div className="kpi-grid">
             <Stat
               label="Pendientes activos"
@@ -1766,6 +1803,7 @@ function Authenticated() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/tareas" element={<Tasks />} />
+        <Route path="/avisos" element={<Notifications />} />
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/finanzas" element={<Finance />} />
         <Route path="/salud" element={<Health />} />

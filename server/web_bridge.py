@@ -8,6 +8,8 @@ from inbox import Inbox
 from health import Health
 from finance import Finance
 from agenda import Agenda
+from reminders import Reminders
+from attention import Attention
 
 def execute(op,p):
  store=Memory(os.environ['NODO_DB']);tasks=Inbox(store);health=Health(store);finance=Finance(store,real_enabled=True)
@@ -16,7 +18,10 @@ def execute(op,p):
  try:
   if op=='overview':
    t=tasks.task_list(status='active');t['tasks']=[x for x in t['tasks'] if x['project']!='demo']
-   return {'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50)}
+   return {'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
+  if op=='notifications':
+   reminders=Reminders(store).reminder_list();reminders['reminders']=[r for r in reminders['reminders']if r['project']!='demo'];return dict(Attention(store).read(),reminders=reminders)
+  if op=='notification.ack':return Attention(store).ack(p['notice_id'],source,p['request_id'])
   if op=='agenda':return Agenda(store).read(p.get('date',today),p.get('days',7))
   if op=='tasks':
    t=tasks.task_list(status=p.get('status','all'));t['tasks']=[x for x in t['tasks'] if x['project']!='demo'];return t
@@ -46,7 +51,7 @@ def execute(op,p):
     from pathlib import Path
     operational=json.loads(Path('/status/operational.json').read_text())
    except (OSError,ValueError):operational=None
-   return {'operational':operational,'version':'1.1.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'No se han activado nuevas notificaciones push en esta web. Se conservan los canales y automatizaciones existentes.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
+   return {'operational':operational,'version':'1.2.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'No se han activado nuevas notificaciones push en esta web. Se conservan los canales y automatizaciones existentes.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
   raise ValueError('Operación no admitida')
  finally:store.close()
 

@@ -15,6 +15,7 @@ interface Item {
 const ITEMS: Item[] = [
   { ruta: "/", label: "Hoy", icono: "home" },
   { ruta: "/tareas", label: "Tareas", icono: "checks" },
+  { ruta: "/avisos", label: "Avisos", icono: "checks" },
   { ruta: "/agenda", label: "Agenda", icono: "calendar" },
   { ruta: "/finanzas", label: "Dinero", icono: "wallet" },
   { ruta: "/salud", label: "Salud", icono: "heart" },

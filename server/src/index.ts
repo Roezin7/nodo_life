@@ -40,7 +40,7 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", version: "1.1.0" }),
+  res.json({ status: "ok", version: "1.2.0" }),
 );
 app.use("/api", (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
@@ -140,6 +140,7 @@ app.use(
 );
 const reads = new Set([
   "overview",
+  "notifications",
   "agenda",
   "tasks",
   "health",
@@ -149,6 +150,7 @@ const reads = new Set([
   "system",
 ]);
 const writes = new Set([
+  "notification.ack",
   "task.capture",
   "task.update",
   "health.capture",
@@ -229,6 +231,6 @@ app.use(
   },
 );
 app.listen(Number(process.env.PORT || 4000), "0.0.0.0", () => {
-  console.log("Nodo Vida 1.1 listo");
+  console.log("Nodo Vida 1.2 listo");
   startCalendarSync();
 });
