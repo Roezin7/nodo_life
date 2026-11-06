@@ -245,7 +245,7 @@ function Home() {
             </div>
             <NodoIsotipo size={92} />
           </section>
-          <div className="card"><Link to="/avisos">Ver avisos y resultados</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
+          <div className="card"><Link to="/avisos">Ver avisos y resultados</Link> · <Link to="/negocios">Consultar negocios</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
           <div className="kpi-grid">
             <Stat
               label="Pendientes activos"
@@ -1604,6 +1604,33 @@ function Finance() {
     </Page>
   );
 }
+const businessFields: Data = {day:"Día", lines:"Líneas importadas",gross_mxn:"Venta bruta MXN",net_mxn:"Venta neta MXN",net_missing:"Sin venta neta",cost_pending:"Costeo pendiente/excepción",state:"Estado",currency:"Moneda",count:"Registros",total:"Importe registrado",active_products:"Productos activos",open_lots:"Lotes abiertos",negative_lots:"Lotes negativos",unlocated_lots:"Lotes con saldo sin zona",cas:"Citas CAS",consular:"Citas consulares",due_or_overdue:"Seguimientos para hoy o vencidos",undated_active:"Prospectos activos sin fecha",type:"Tipo",amount_mxn:"Importe MXN",last_sale_at:"Última venta importada",last_purchase_date:"Última compra",last_client_at:"Último alta de cliente",last_finance_date:"Último movimiento"};
+const businessGroups: Data = {sales_7d:"Ventas importadas · últimos 7 días",purchases_30d:"Compras registradas · últimos 30 días",weeks:"Semanas · historial",inventory:"Inventario · estado registrado",reconciliation_30d:"Conciliaciones · últimos 30 días",checklists_today:"Listas de trabajo · hoy",coverage:"Cobertura de la fuente",clients:"Clientes registrados · total",pipeline:"Prospectos por estado · total",appointments_7d:"Citas registradas · próximos 7 días",followups:"Seguimiento de prospectos activos",flows_30d:"Movimientos registrados · últimos 30 días"};
+function Businesses() {
+ const [d,reload,loading,error]=useLive<Data>("businesses");
+ return <Page titulo="Negocios" icono="target" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
+  <p>La operación de tus negocios, con su fuente y fecha. Las cifras se mantienen separadas de tu dinero personal.</p>
+  <ErrorBox error={error} retry={reload}/>
+  {!d&&loading&&<Loading/>}
+  {d?.businesses.map((b:Data)=><section className="card n-card" key={b.project_id}>
+   <h2>{b.name}</h2><p>{b.entity_name}</p>
+   <Badge>{({fresh:"Lectura reciente",stale:"Lectura antigua",degraded:"Error al actualizar",unavailable:"Sin lectura disponible"} as Data)[b.status]||b.status}</Badge>
+   <p className="evidence">Última captura: {stamp(b.snapshot?.collected_at)} · intento: {stamp(b.last_attempt)}</p>
+   {b.last_error&&<p role="status">No se pudo actualizar. {b.snapshot?"Se conserva la última captura correcta; puede haber cambios posteriores.":"No hay una captura correcta para mostrar."}</p>}
+   {b.snapshot&&<>
+    <p>Zona Ciudad de México · últimas 7 fechas: {b.snapshot.period.from_7d} a {b.snapshot.period.today}. Últimos 30 días desde {b.snapshot.period.from_30d}. Citas: hoy y los siguientes 6 días.</p>
+    <p>Una captura reciente puede contener registros antiguos. Consulta «Cobertura de la fuente».</p>
+    {Object.entries(b.snapshot.metrics).map(([key,rows])=><details key={key} className="business-detail" open={key==="coverage"}>
+     <summary>{businessGroups[key]||key}</summary>
+     {!(rows as Data[]).length?<p>Sin registros en esta consulta. No confirma ausencia de actividad.</p>:
+      (rows as Data[]).map((row,i)=><dl className="business-metrics" key={i}>{Object.entries(row).map(([k,v])=><div key={k}><dt>{businessFields[k]||k}</dt><dd>{v==null?"Sin dato":String(v)}</dd></div>)}</dl>)}
+    </details>)}
+   </>}
+   <p className="evidence">{b.source} · versión {b.version}</p>
+   <p>Ventas importadas no aseguran cobertura completa; movimientos y compras no equivalen a utilidad, efectivo disponible ni cuentas conciliadas. Sólo lectura; sin expedientes ni datos de clientes.</p>
+  </section>)}
+ </Page>
+}
 function Memory() {
   const [domain, setDomain] = useState("continuidad"),
     [edit, setEdit] = useState<Data | null>(null);
@@ -1810,6 +1837,7 @@ function Authenticated() {
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/finanzas" element={<Finance />} />
         <Route path="/salud" element={<Health />} />
+        <Route path="/negocios" element={<Businesses />} />
         <Route path="/memoria" element={<Memory />} />
         <Route path="/sistema" element={<System />} />
         <Route path="*" element={<Navigate to="/" replace />} />

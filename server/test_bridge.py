@@ -12,6 +12,13 @@ class Integration(unittest.TestCase):
  def tearDown(self):self.store.close();self.tmp.cleanup()
  def key(self):return str(uuid.uuid4())
  def call(self,op,**params):return bridge.execute(op,params)
+ def test_business_shared_readonly(self):
+  from business import Business
+  b=Business(self.store)
+  r=self.call('business',project_id='casa_blanca');self.assertEqual(r['entity_id'],'2');self.assertIsNone(r['snapshot']);self.assertEqual(r['status'],'unavailable')
+  self.assertEqual(len(self.call('businesses')['businesses']),2)
+ def test_business_unknown_is_rejected(self):
+  with self.assertRaises(ValueError):self.call('business',project_id='unregistered')
  def test_tasks_shared_version_idempotency(self):
   p=dict(project='iberico',title='Prueba',next_action='Revisar',request_id=self.key());a=self.call('task.capture',**p);b=self.call('task.capture',**p);self.assertEqual(a,b)
   self.assertEqual(Inbox(self.store).task_get(a['task']['id'])['task']['title'],'Prueba')

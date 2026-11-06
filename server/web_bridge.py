@@ -11,6 +11,7 @@ from agenda import Agenda
 from reminders import Reminders
 from attention import Attention
 from push_store import PushStore
+from business import Business
 
 def execute(op,p):
  store=Memory(os.environ['NODO_DB']);tasks=Inbox(store);health=Health(store);finance=Finance(store,real_enabled=True)
@@ -27,6 +28,8 @@ def execute(op,p):
    if op=='push.result':return push.result(p['delivery_id'],p['code'])
    if op=='push.receipt':return push.receipt(p['delivery_id'],p['token'],p['kind'])
    raise ValueError('Operación de push inválida')
+  if op=='businesses':return Business(store).business_list()
+  if op=='business':return Business(store).business_read(p['project_id'])
   if op=='overview':
    t=tasks.task_list(status='active');t['tasks']=[x for x in t['tasks'] if x['project']!='demo']
    return {'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
@@ -62,7 +65,7 @@ def execute(op,p):
     from pathlib import Path
     operational=json.loads(Path('/status/operational.json').read_text())
    except (OSError,ValueError):operational=None
-   return {'operational':operational,'version':'1.3.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
+   return {'operational':operational,'version':'1.4.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
   raise ValueError('Operación no admitida')
  finally:store.close()
 

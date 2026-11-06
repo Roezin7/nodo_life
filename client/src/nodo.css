@@ -336,3 +336,9 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+.business-detail { border-top:1px solid var(--border, #7774); padding: 14px 0; }
+.business-detail summary { cursor:pointer; font-weight:600; padding:6px 0; }
+.business-metrics { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; padding:12px; border-radius:12px; background:var(--surface, #8881); }
+.business-metrics dt {font-size:.8rem;opacity:.75;}
+.business-metrics dd {margin:4px 0 0;overflow-wrap:anywhere;font-weight:600;}
