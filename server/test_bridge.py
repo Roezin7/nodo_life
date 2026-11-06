@@ -48,4 +48,11 @@ class Integration(unittest.TestCase):
   self.assertIsNotNone(self.call('notifications')['items'][0]['acknowledged_at'])
   self.assertEqual(r.reminder_get(x['id'])['reminder']['status'],'open')
 
+
+
+ def test_push_status_does_not_expose_subscription_or_keys(self):
+  s=self.call('push.status');self.assertEqual(s['active_devices'],0);self.assertNotIn('subscription',s);self.assertNotIn('keys',s)
+ def test_unknown_push_is_not_a_command(self):
+  with self.assertRaises(ValueError):self.call('push.shell',command='id')
+
 if __name__=='__main__':unittest.main()

@@ -8,6 +8,7 @@ import {
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import Shell from "./Shell";
+import PushSetup from "./PushSetup";
 import NodoIsotipo from "./brand/NodoIsotipo";
 import { query, mutate, localDay } from "./api";
 import {
@@ -188,10 +189,12 @@ function Notifications() {
   catch(e){setAckError((e as Error).message)}finally{setBusy(null)}
  }
  return <Page titulo="Avisos" icono="checks" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
+  <PushSetup/>
   <p>Recordatorios y resultados de Nodo. «Visto» confirma lectura; no termina tareas ni aprueba cambios.</p>
-  <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. La entrega de notificaciones al teléfono sigue sin comprobarse.</p>
+  <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. Activa y prueba los avisos en el bloque superior.</p>
   <ErrorBox error={error || ackError} retry={reload}/>
   {!d ? loading && <Loading/> : <>
+   <section><h2>Próximos recordatorios</h2><p>{d.reminders.reminders[0] ? `${d.reminders.reminders[0].title} · ${stamp(d.reminders.reminders[0].event_at)}` : "No hay recordatorios abiertos registrados."}</p></section>
    <section><h2>Para revisar</h2>
     {!d.items.length && <p>No hay avisos disponibles. Los próximos recordatorios aparecen abajo.</p>}
     {d.items.map((n:Data)=><article className="card" key={n.id}>

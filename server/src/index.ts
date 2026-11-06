@@ -1,3 +1,4 @@
+import { pushRoutes,pushReceiptRoute,startPushSender } from "./push.js";
 import { startCalendarSync } from "./calendar.js";
 import express from "express";
 import helmet from "helmet";
@@ -40,7 +41,7 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", version: "1.2.0" }),
+  res.json({ status: "ok", version: "1.3.0" }),
 );
 app.use("/api", (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
@@ -108,6 +109,7 @@ app.post("/api/auth/logout", (_req, res) => {
   });
   res.json({ ok: true });
 });
+pushReceiptRoute(app);
 app.use("/api", (req, res, next) => {
   try {
     const token = (req.headers.cookie || "")
@@ -138,6 +140,7 @@ app.use(
     legacyHeaders: false,
   }),
 );
+pushRoutes(app);
 const reads = new Set([
   "overview",
   "notifications",
@@ -215,7 +218,7 @@ app.post("/api/query", (req, res) => {
 app.use("/api", (_req, res) =>
   res.status(404).json({ error: "Ruta no disponible" }),
 );
-app.use(express.static(resolve("public"), { index: false, maxAge: "1h" }));
+app.use(express.static(resolve("public"), { index: false, maxAge: "1h", setHeaders(res,path){ if(/(?:sw\.js|registerSW\.js|push-sw\.js|index\.html|manifest\.webmanifest)$/.test(path))res.setHeader("Cache-Control","no-cache"); } }));
 app.get("*", (_req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.sendFile(resolve("public/index.html"));
@@ -231,6 +234,7 @@ app.use(
   },
 );
 app.listen(Number(process.env.PORT || 4000), "0.0.0.0", () => {
-  console.log("Nodo Vida 1.2 listo");
+  console.log("Nodo Vida 1.3 listo");
   startCalendarSync();
+  startPushSender();
 });
