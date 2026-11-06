@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { readFileSync } from 'node:fs';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 import { rateLimit } from 'express-rate-limit';
 import type { Express } from 'express';
 export function bridge(op:string,params:Record<string,unknown>={}):Promise<any>{
