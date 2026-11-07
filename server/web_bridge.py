@@ -14,6 +14,18 @@ from push_store import PushStore
 from business import Business
 from direction import Direction
 
+def health_history(health,end):
+ end=datetime.fromisoformat(end).date()
+ days=[health.health_day((end-timedelta(days=i)).isoformat())for i in range(6,-1,-1)]
+ row=health.db.execute("SELECT event_date FROM health_events WHERE kind='weight' AND is_demo=0 AND event_date<=? ORDER BY event_date DESC LIMIT 1",(end.isoformat(),)).fetchone()
+ last=None
+ if row:
+  weights=[r for r in health.health_day(row[0])['records']if r['kind']=='weight']
+  if weights:
+   r=max(weights,key=lambda r:(r.get('captured_at',''),r['id']))
+   last={'event_date':r['event_date'],'kg':r['data']['kg'],'record_id':r['id'],'source':r['source'],'is_reference':r['event_date']!=end.isoformat()}
+ return {'days':[{'date':d['event_date'],'record_count':len(d['records']),'summary':d['summary'],'truncated':d['truncated']}for d in days],'latest_weight':last,'as_of':end.isoformat()}
+
 def execute(op,p):
  store=Memory(os.environ['NODO_DB']);tasks=Inbox(store);health=Health(store);finance=Finance(store,real_enabled=True)
  today=datetime.now(ZoneInfo('America/Mexico_City')).date().isoformat()
@@ -40,7 +52,7 @@ def execute(op,p):
    t=tasks.task_list(status='active');t['tasks']=[x for x in t['tasks'] if x['project']!='demo']
    direction=Direction(store).direction_read(today)
    direction={k:direction[k]for k in ('accepted_plan','proposed_priorities','latest_review','pending_decisions')}
-   return {'direction':direction,'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
+   return {'direction':direction,'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'health_history':health_history(health,today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
   if op=='notifications':
    reminders=Reminders(store).reminder_list();reminders['reminders']=[r for r in reminders['reminders']if r['project']!='demo'];return dict(Attention(store).read(),reminders=reminders)
   if op=='notification.ack':return Attention(store).ack(p['notice_id'],source,p['request_id'])
@@ -51,7 +63,8 @@ def execute(op,p):
   if op=='task.update':
    if tasks.task_get(p['task_id'])['task']['project']=='demo':raise ValueError('Registro de prueba fuera de esta vista')
    return tasks.task_update(p['task_id'],p['expected_version'],p['changes'],source,p['request_id'])
-  if op=='health':return health.health_day(p.get('date',today))
+  if op=='health':
+   result=health.health_day(p.get('date',today));result['history']=health_history(health,p.get('date',today));return result
   if op=='health.trend':
    end=datetime.fromisoformat(p.get('date',today)).date();days=[health.health_day((end-timedelta(days=i)).isoformat()) for i in range(13,-1,-1)]
    return {'days':[{'date':d['event_date'],'weights':[r['data']['kg'] for r in d['records'] if r['kind']=='weight'],'summary':d['summary']} for d in days]}
@@ -73,7 +86,7 @@ def execute(op,p):
     from pathlib import Path
     operational=json.loads(Path('/status/operational.json').read_text())
    except (OSError,ValueError):operational=None
-   return {'operational':operational,'version':'1.6.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
+   return {'operational':operational,'version':'1.6.1','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
   raise ValueError('Operación no admitida')
  finally:store.close()
 

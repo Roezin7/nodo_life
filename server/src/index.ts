@@ -41,7 +41,7 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", version: "1.6.0" }),
+  res.json({ status: "ok", version: "1.6.1" }),
 );
 app.use("/api", (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {

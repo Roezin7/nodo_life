@@ -12,6 +12,26 @@ class Integration(unittest.TestCase):
  def tearDown(self):self.store.close();self.tmp.cleanup()
  def key(self):return str(uuid.uuid4())
  def call(self,op,**params):return bridge.execute(op,params)
+ def test_history_keeps_weight_date_and_excludes_future_demo(self):
+  h=Health(self.store)
+  h.health_capture('weight','2026-11-05',{'kg':79.08},'Test',self.key(),False)
+  h.health_capture('weight','2026-11-06',{'kg':99},'Demo',self.key(),True)
+  h.health_capture('weight','2026-11-08',{'kg':82},'Future',self.key(),False)
+  d=self.call('health',date='2026-11-06')
+  self.assertFalse(d['summary']['weight_present']);self.assertEqual(d['history']['latest_weight']['kg'],79.08);self.assertEqual(d['history']['latest_weight']['event_date'],'2026-11-05');self.assertTrue(d['history']['latest_weight']['is_reference'])
+  self.assertEqual(self.call('health',date='2026-11-04')['history']['latest_weight'],None)
+ def test_history_totals_do_not_duplicate_daily_estimate(self):
+  h=Health(self.store)
+  values=dict(kcal=500,protein_g=20,estimated=True,assumptions='Synthetic test')
+  h.health_capture('food','2026-11-06',dict(values,description='Test meal',state='consumed'),'Test',self.key(),False)
+  h.health_capture('daily_estimate','2026-11-06',values,'Test',self.key(),False)
+  d=self.call('health',date='2026-11-07');y=d['history']['days'][-2]
+  self.assertEqual(d['records'],[]);self.assertEqual(y['date'],'2026-11-06');self.assertEqual(y['summary']['consumed_entries'],1);self.assertEqual(y['summary']['estimated_totals_of_known_entries']['kcal'],500);self.assertNotEqual(y['summary']['meals_complete'],True)
+ def test_overview_history_is_read_only(self):
+  h=Health(self.store);h.health_capture('weight','2026-11-05',{'kg':79.08},'Test',self.key(),False)
+  before=self.store.db.execute('SELECT count(*) FROM health_history').fetchone()[0]
+  result=self.call('overview');self.assertIn('health_history',result)
+  self.assertEqual(self.store.db.execute('SELECT count(*) FROM health_history').fetchone()[0],before)
  def test_business_shared_readonly(self):
   from business import Business
   b=Business(self.store)

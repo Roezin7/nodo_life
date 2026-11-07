@@ -5,7 +5,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import Shell from "./Shell";
 import PushSetup from "./PushSetup";
@@ -260,14 +260,9 @@ function Home() {
               sub="Declarado · sin conciliación bancaria"
             />
             <Stat
-              label="Peso de hoy"
-              valor={
-                d.health.records
-                  .filter((r: RecordItem) => r.kind === "weight")
-                  .map((r: RecordItem) => `${r.data.kg} kg`)
-                  .join(" / ") || "Sin registro"
-              }
-              sub="Una medición no define la tendencia"
+              label={d.health.summary.weight_present?"Peso de hoy":"Último peso medido"}
+              valor={d.health.summary.weight_present?d.health.records.filter((r:RecordItem)=>r.kind==='weight').map((r:RecordItem)=>`${r.data.kg} kg`).join(' / '):d.health_history?.latest_weight?`${d.health_history.latest_weight.kg} kg`:"Sin mediciones"}
+              sub={d.health.summary.weight_present?"Medición de hoy; no define la tendencia":d.health_history?.latest_weight?`${d.health_history.latest_weight.event_date} · referencia histórica, no pesaje de hoy`:"No hay mediciones registradas"}
             />
             <Stat
               label="Alimentos y bebidas"
@@ -279,6 +274,7 @@ function Home() {
               }
             />
           </div>
+          <section className="card n-card"><div className="section-head"><h2>Tu registro reciente</h2><Link to="/salud">Abrir Salud →</Link></div><p>Inicio muestra hoy. Tus registros anteriores siguen aquí, en su fecha.</p><div className="recent-health">{[...(d.health_history?.days||[])].reverse().filter((x:Data)=>x.record_count>0).map((x:Data)=><Link className="recent-health-day" key={x.date} to={`/salud?fecha=${x.date}`}><strong>{x.date}</strong><span>{x.summary.consumed_entries} ingestas · {x.record_count} registros</span><span>{x.summary.estimated_totals_of_known_entries.kcal==null?'Calorías sin estimar':`${x.summary.estimated_totals_of_known_entries.kcal} kcal registradas`}</span><small>{x.summary.meals_complete===true?'Día declarado completo':'Día sin cierre confirmado'} · Ver registros ↗</small></Link>)}</div>{!d.health_history?.days?.some((x:Data)=>x.record_count>0)&&<p>Sin registros en los últimos siete días. No equivale a consumo cero.</p>}</section>
           <div className="two-cols">
             <section className="card n-card focus-card">
               <div className="section-kicker">Enfoque</div><div className="section-head">
@@ -943,8 +939,11 @@ const nutritionSpecs: Spec[] = [
   },
 ];
 function Health() {
-  const [day, setDay] = useState(localDay()),
-    [kind, setKind] = useState("food"),
+  const [search,setSearch]=useSearchParams();
+  const requested=search.get('fecha')||localDay();
+  const day=/^\d{4}-\d{2}-\d{2}$/.test(requested)&&!Number.isNaN(Date.parse(requested+'T12:00:00Z'))?requested:localDay();
+  const setDay=(value:string)=>{if(value)setSearch({fecha:value});};
+  const [kind, setKind] = useState("food"),
     [edit, setEdit] = useState<RecordItem | null | undefined>(undefined);
   const [d, reload, loading, error] = useLive<Data>("health", { date: day });
   const [trend] = useLive<Data>("health.trend", { date: day });
@@ -972,6 +971,7 @@ function Health() {
       }
     >
       <div className="toolbar">
+        <button className="btn-ghost" onClick={()=>setDay(localDay())}>Hoy</button><button className="btn-ghost" onClick={()=>{const date=new Date(localDay()+'T12:00:00Z');date.setUTCDate(date.getUTCDate()-1);setDay(date.toISOString().slice(0,10));}}>Ayer</button>
         <input
           aria-label="Día de salud"
           type="date"
@@ -993,8 +993,9 @@ function Health() {
           Actualizar
         </button>
       </div>
+      <p className="notice">Viendo <strong>{day}</strong>{day===localDay()?' · hoy':' · fecha histórica'}. Sólo se muestran los registros de esa fecha; no se trasladan de un día a otro.</p>
       <ErrorBox error={error} retry={reload} />
-      {!d ? (
+      {!d || d.event_date!==day ? (
         loading ? (
           <Loading />
         ) : null
@@ -1042,6 +1043,7 @@ function Health() {
               }
             />
           </div>
+          {d.history?.latest_weight&&<p className="notice">Última medición hasta esta fecha: <strong>{d.history.latest_weight.kg} kg · {d.history.latest_weight.event_date}</strong>. {d.history.latest_weight.is_reference?'Referencia histórica; no es un pesaje del día seleccionado.':'Medición del día seleccionado.'}</p>}
           <section className="card n-card">
             <h2>Tu peso, con perspectiva</h2>
             {trend && (
@@ -1057,7 +1059,7 @@ function Health() {
             </p>
           </section>
           <section className="card n-card">
-            <h2>Registro de {day}</h2>
+            <h2>Registro de {day}</h2><p>{d.records.length} registros guardados · {d.summary.consumed_entries} alimentos y bebidas. Se muestran cuatro registros por página; usa las flechas para ver el resto.</p>
             <PagedList pageSize={4} resetKey={day}>{d.records.map((r: RecordItem) => (
               <article className="list-row" key={r.id}>
                 <div className="section-head">
