@@ -182,6 +182,7 @@ function Notifications() {
  const [busy,setBusy]=useState<string|null>(null);
  const [ackError,setAckError]=useState<string|null>(null);
  const requests=useRef<Record<string,string>>({});
+ const upcoming=d?.reminders.reminders.find((r:Data)=>new Date(r.event_at).getTime()>=Date.now());
  async function ack(id:string){
   setBusy(id);setAckError(null);requests.current[id] ||= crypto.randomUUID();
   try {await mutate("notification.ack",{notice_id:id},requests.current[id]);reload();}
@@ -193,7 +194,7 @@ function Notifications() {
   <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. Activa y prueba los avisos en el bloque superior.</p>
   <ErrorBox error={error || ackError} retry={reload}/>
   {!d ? loading && <Loading/> : <>
-   <section><h2>Próximos recordatorios</h2><p>{d.reminders.reminders[0] ? `${d.reminders.reminders[0].title} · ${stamp(d.reminders.reminders[0].event_at)}` : "No hay recordatorios abiertos registrados."}</p></section>
+   <section><h2>Próximos recordatorios</h2><p>{upcoming ? `${upcoming.title} · ${stamp(upcoming.event_at)}` : "No hay recordatorios futuros registrados. Los abiertos siguen disponibles abajo."}</p></section>
    <section><h2>Para revisar</h2><ViewTabs value={noticeView} onChange={setNoticeView} items={[{id:"pending",label:"Sin leer"},{id:"all",label:"Todos"}]}/>{noticeView==="pending"&&!d.items.some((n:Data)=>!n.acknowledged_at)&&<Empty>Todo al día. No tienes avisos sin leer.</Empty>}
     {!d.items.length && <p>No hay avisos disponibles. Los próximos recordatorios aparecen abajo.</p>}
     {<PagedList resetKey={noticeView}>{d.items.filter((n:Data)=>noticeView==="all"||!n.acknowledged_at).map((n:Data)=><article className="card" key={n.id}>
