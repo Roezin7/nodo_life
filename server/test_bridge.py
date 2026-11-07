@@ -19,6 +19,17 @@ class Integration(unittest.TestCase):
   self.assertEqual(len(self.call('businesses')['businesses']),2)
  def test_business_unknown_is_rejected(self):
   with self.assertRaises(ValueError):self.call('business',project_id='unregistered')
+ def test_direction_goal_proposal_then_explicit_decision(self):
+  data=dict(domain='life',title='Prueba',outcome='Sólo prueba',metric='qualitative',target_value=None,unit=None,target_date=None,review_on=None)
+  g=self.call('direction.goal.save',data=data,request_id=self.key())['goal'];self.assertEqual(g['status'],'proposed')
+  self.call('direction.goal.decide',goal_id=g['id'],expected_version=1,decision='active',human_confirmed=True,evidence='Decisión explícita de prueba',request_id=self.key())
+  self.assertEqual(self.call('direction')['goals'][0]['status'],'active')
+ def test_direction_no_implicit_approval(self):
+  data=dict(domain='life',title='Prueba',outcome='Sólo prueba',metric='qualitative',target_value=None,unit=None,target_date=None,review_on=None)
+  g=self.call('direction.goal.save',data=data,request_id=self.key())['goal']
+  with self.assertRaises(ValueError):self.call('direction.goal.decide',goal_id=g['id'],expected_version=1,decision='active',human_confirmed=False,evidence='No',request_id=self.key())
+ def test_direction_review_read_write_shared(self):
+  r=self.call('direction.review.prepare',as_of='2026-11-06',request_id=self.key())['review'];self.assertEqual(self.call('direction',as_of='2026-11-06')['latest_review']['id'],r['id'])
  def test_tasks_shared_version_idempotency(self):
   p=dict(project='iberico',title='Prueba',next_action='Revisar',request_id=self.key());a=self.call('task.capture',**p);b=self.call('task.capture',**p);self.assertEqual(a,b)
   self.assertEqual(Inbox(self.store).task_get(a['task']['id'])['task']['title'],'Prueba')

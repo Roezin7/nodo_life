@@ -1,0 +1,68 @@
+import {useEffect,useRef,useState,type FormEvent} from 'react';
+import {query,mutate,localDay} from './api';
+import {Page,Modal,Field,Stat,useCargar} from './ui';
+type D=Record<string,any>;
+const money=(c:number|null,unit='MXN')=>c==null?'Pendiente':new Intl.NumberFormat('es-MX',{style:'currency',currency:unit,maximumFractionDigits:0}).format(c/100);
+const labels:D={proposed:'Propuesta por revisar',active:'Activa',paused:'Pausada',completed:'Completada por decisión registrada',rejected:'Rechazada',accepted:'Prioridades aprobadas',declined:'Revisión rechazada'};
+const domains:D={money:'Dinero',work:'Trabajo',health:'Salud',life:'Vida personal'};
+const metrics:D={qualitative:'Cualitativa · sin cifra',protected_cash:'Efectivo protegido',monthly_income:'Ingreso mensual',body_weight:'Peso corporal',running_5k_seconds:'5 km en segundos',strength_sessions_per_week:'Sesiones de fuerza por semana',custom:'Otra medida'};
+const blank={domain:'money',title:'',outcome:'',metric:'qualitative',target_value:null,unit:null,target_date:null,review_on:null};
+function GoalForm({goal,close}:{goal:D|null;close:()=>void}){
+ const [v,set]=useState<D>(goal?.data||blank);const [error,E]=useState('');const [busy,B]=useState(false);const id=useRef(crypto.randomUUID());
+ const change=(k:string,x:any)=>{id.current=crypto.randomUUID();set((p:D)=>({...p,[k]:x}));};
+ async function submit(e:FormEvent){e.preventDefault();B(true);E('');try{await mutate('direction.goal.save',{data:v,...(goal?{goal_id:goal.id,expected_version:goal.version}:{})},id.current);close();}catch(e){E((e as Error).message);}finally{B(false);}}
+ return <Modal titulo={goal?'Revisar objetivo':'Proponer objetivo'} onClose={close}><form onSubmit={submit}>
+  <p>Guardar crea una propuesta. Activarla requiere otra decisión explícita. Una meta no mueve dinero ni cambia tu rutina.</p>
+  <Field label="Área"><select value={v.domain} onChange={e=>change('domain',e.target.value)}>{Object.entries(domains).map(([k,l])=><option key={k} value={k}>{String(l)}</option>)}</select></Field>
+  <Field label="Objetivo"><input required maxLength={180} value={v.title} onChange={e=>change('title',e.target.value)}/></Field>
+  <Field label="Resultado que quieres conseguir"><textarea required maxLength={800} value={v.outcome} onChange={e=>change('outcome',e.target.value)}/></Field>
+  <Field label="Cómo medirlo"><select value={v.metric} onChange={e=>{id.current=crypto.randomUUID();set({...v,metric:e.target.value,target_value:null,unit:null});}}>{Object.entries(metrics).map(([k,l])=><option key={k} value={k}>{String(l)}</option>)}</select></Field>
+  {v.metric!=='qualitative'&&<><Field label="Cifra objetivo"><input required type="number" min="0" step="any" value={v.target_value??''} onChange={e=>change('target_value',e.target.value===''?null:Number(e.target.value))}/></Field><Field label="Unidad" hint="Dinero: MXN o USD. Otras: kg, segundos o sesiones/semana."><input required maxLength={30} value={v.unit??''} onChange={e=>change('unit',e.target.value)}/></Field></>}
+  <Field label="Fecha objetivo (opcional)"><input type="date" value={v.target_date??''} onChange={e=>change('target_date',e.target.value||null)}/></Field>
+  <Field label="Fecha de revisión (opcional)"><input type="date" value={v.review_on??''} onChange={e=>change('review_on',e.target.value||null)}/></Field>
+  {error&&<p role="alert">{error}</p>}<button className="btn-primary" disabled={busy}>{busy?'Guardando…':'Guardar propuesta'}</button>
+ </form></Modal>
+}
+export default function DirectionPanel(){
+ const [d,reload,loading,error]=useCargar<D>(()=>query('direction'),[]);const [edit,setEdit]=useState<D|null|undefined>();const [busy,B]=useState(false);const [msg,M]=useState('');const [notes,N]=useState('');const [selected,S]=useState<string[]>([]);const prepareId=useRef(crypto.randomUUID());const writeId=useRef(crypto.randomUUID());
+ const review=d?.latest_review;
+ useEffect(()=>{S((review?.proposed_priorities||[]).map((x:D)=>x.id));writeId.current=crypto.randomUUID();},[review?.id,review?.version]);
+ useEffect(()=>{const f=()=>reload();window.addEventListener('focus',f);return()=>window.removeEventListener('focus',f);},[]);
+ async function run(op:string,p:D,id:string){B(true);M('');try{await mutate(op,p,id);M('Guardado en la base compartida.');return true;}catch(e){M((e as Error).message);return false;}finally{B(false);}}
+ async function prepare(){if(await run('direction.review.prepare',{as_of:localDay()},prepareId.current))prepareId.current=crypto.randomUUID();}
+ return <Page titulo="Dirección" icono="target" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
+  <p>Elegir qué importa, revisar resultados y mantener el rumbo. Las propuestas esperan tu decisión.</p>
+  {(error||msg)&&<p role={error?'alert':'status'}>{error||msg}</p>}
+  {!d&&loading&&<p>Reuniendo contexto…</p>}
+  {d&&<>
+   {d.accepted_plan&&<section className="card"><h2>Tu plan elegido</h2><p>Revisión {d.accepted_plan.as_of}. No se cambia automáticamente por datos nuevos.</p><ol>{d.accepted_plan.priorities.map((x:D)=><li key={x.id}><strong>{x.title}</strong><p>{x.next_action}</p></li>)}</ol></section>}
+   <section className="card"><h2>Propuesta de enfoque</h2><p>Una prioridad principal y hasta dos secundarias. No crea tareas ni ocupa tu agenda.</p><ol>{d.proposed_priorities.map((x:D)=><li key={x.id}><strong>{x.title}</strong><p>{x.next_action}</p><small>{x.reason}</small></li>)}</ol></section>
+   <section className="card"><h2>Metas y decisiones</h2><button className="btn-primary" onClick={()=>setEdit(null)}>Proponer objetivo</button>
+    {!d.goals.length&&<p>Aún no hay metas registradas.</p>}
+    {d.goals.map((g:D)=><article className="direction-goal" key={g.id}><h3>{g.data.title}</h3><p>{domains[g.data.domain]} · {labels[g.status]}</p><p>{g.data.outcome}</p><p>{g.data.target_value==null?'Cifra objetivo pendiente de decisión':`${g.data.target_value} ${g.data.unit}${g.data.metric==='monthly_income'?' al mes':''}`}{g.data.target_date?` · objetivo ${g.data.target_date}`:''}{g.data.review_on?` · revisar ${g.data.review_on}`:''}</p>
+     <div className="toolbar"><button className="btn-ghost" disabled={busy} onClick={()=>setEdit(g)}>Ajustar propuesta</button>{g.status!=='active'&&<button className="btn-primary" disabled={busy} onClick={()=>run('direction.goal.decide',{goal_id:g.id,expected_version:g.version,decision:'active',human_confirmed:true,evidence:'Arturo pulsó Activar objetivo en Dirección'},'activate-goal-'+g.id+'-v'+g.version)}>Activar objetivo</button>}{g.status==='active'&&<button className="btn-ghost" disabled={busy} onClick={()=>run('direction.goal.decide',{goal_id:g.id,expected_version:g.version,decision:'paused',human_confirmed:true,evidence:'Arturo pulsó Pausar objetivo en Dirección'},'pause-goal-'+g.id+'-v'+g.version)}>Pausar objetivo</button>}</div><small>Fuente: {g.source} · versión {g.version}</small>
+    </article>)}
+   </section>
+   <section className="card"><h2>Liquidez y ahorro</h2><p>Escenarios documentales; no son dinero disponible ni utilidad. No se realizan inversiones o pagos.</p>
+    {d.liquidity.scenarios.map((s:D)=><div key={s.currency}><h3>{s.currency} · evidencia de saldo {s.last_balance_evidence_date||'sin fecha'}</h3><div className="kpi-grid"><Stat label="Efectivo declarado" valor={money(s.declared_cash_cents,s.currency)} sub="Sin conciliación bancaria"/><Stat label="Pagos pendientes" valor={money(s.pending_payments_cents,s.currency)}/><Stat label="Reserva de presupuesto" valor={money(s.budget_reserve_cents,s.currency)}/><Stat label="Meta de efectivo protegido" valor={money(s.protected_cash_target_cents,s.currency)} sub={s.target_conflict?'Hay metas en conflicto':'Sólo metas activadas por ti'}/></div>
+     <dl className="direction-scenarios"><dt>Si pagas todos los pendientes y apartas reserva antes de cobrar</dt><dd>{money(s.cash_after_all_payments_and_reserve_cents,s.currency)}</dd><dt>Si además se cobran los importes declarados para este mes</dt><dd>{money(s.if_month_receivables_collected_cents,s.currency)}</dd><dt>Si se cobran todos los pendientes, incluso futuros y condicionales</dt><dd>{money(s.all_receivables_projection_cents,s.currency)}</dd></dl><p>{s.note}</p>
+     <details><summary>Cobros y pagos: fechas y certeza</summary>{s.commitments.map((x:D)=><p key={x.id}><strong>{x.title}</strong> · {x.direction==='in'?'Por cobrar':'Por pagar'} · {money(x.remaining_cents,s.currency)} · {x.due_date||x.expected_month||'Sin fecha'} · {x.certainty==='conditional'?'Condicional':'Declarado'}</p>)}</details>
+    </div>)}
+   </section>
+   <section className="card"><h2>Salud: observar antes de ajustar</h2><p>{d.health.start} a {d.health.end}. No se estima déficit ni grasa a partir de estos datos.</p>
+    <div className="kpi-grid">{d.health.windows.map((w:D)=><Stat key={w.start} label={`${w.start} a ${w.end}`} valor={w.mean_kg==null?'Sin media suficiente':`${w.mean_kg} kg`} sub={`${w.measured_days} fechas medidas; mínimo 3 para media descriptiva`}/>)}</div>
+    <p>{d.health.weekly_mean_change_kg==null?'Todavía no hay dos ventanas suficientes para comparar.':`Cambio entre medias: ${d.health.weekly_mean_change_kg} kg. No es un cambio de grasa comprobado.`}</p>
+    <details><summary>Cobertura y actividad declarada</summary>{d.health.days.filter((x:D)=>x.weights_kg.length||x.workouts.length||x.consumed_entries||x.activity_declared).map((x:D)=><p key={x.date}><strong>{x.date}</strong> · peso {x.weights_kg.length?x.weights_kg.join(' / ')+' kg':'sin medición'} · {x.workouts.length} registros de entrenamiento · {x.consumed_entries} ingestas · alimentación {x.meals_complete?'día declarado completo':'día parcial o sin cierre'}{x.known_intake.kcal!=null?` · ${x.known_intake.kcal} kcal de entradas conocidas`:''}</p>)}</details><p>Una rutina guardada no acredita ejercicio realizado. Se mantienen las metas y observación acordadas; los ajustes se proponen para revisión.</p>
+   </section>
+   <section className="card"><h2>Tiempo y equilibrio</h2><p>{d.time.availability_source}</p><p>{d.time.activity_baseline}</p><p>{d.time.note}</p>{d.time.calendar_stale&&<p role="status">Calendario ausente o antiguo: no confirmar disponibilidad.</p>}{d.time.blocks.map((b:D)=><p key={b.date}><strong>{b.date}</strong> · {b.start.slice(11,16)}–{b.end.slice(11,16)} · {b.state==='proposal_conflict'?'Cruza con una reunión registrada':'Bloque propuesto, sin agendar'}</p>)}</section>
+   <section className="card"><h2>Revisión semanal</h2><p>Lunes a las 09:00, en el aviso existente. Preparar un borrador no aprueba metas ni ejecuta acciones.</p><button className="btn-ghost" disabled={busy} onClick={prepare}>Preparar revisión con datos actuales</button>
+    {review&&<><p>Semana {review.week_start} · corte {review.as_of} · versión {review.version} · {labels[review.status]}</p>{review.status==='proposed'&&<><fieldset className="direction-choices"><legend>Elige hasta tres prioridades; la primera será la principal.</legend>{review.candidates.map((x:D)=><label key={x.id}><input type="checkbox" checked={selected.includes(x.id)} disabled={!selected.includes(x.id)&&selected.length>=3} onChange={e=>{S(e.target.checked?[...selected,x.id]:selected.filter(i=>i!==x.id));writeId.current=crypto.randomUUID();}}/>{x.title}{selected.includes(x.id)?` · ${selected.indexOf(x.id)+1}`:''}</label>)}</fieldset><Field label="Decisión o notas"><textarea maxLength={1000} value={notes} onChange={e=>{N(e.target.value);writeId.current=crypto.randomUUID();}}/></Field><button className="btn-primary" disabled={busy||!selected.length} onClick={()=>run('direction.review.decide',{review_id:review.id,expected_version:review.version,decision:'accepted',priority_ids:selected,notes:notes||'Prioridades revisadas y aceptadas por Arturo desde Dirección',human_confirmed:true},writeId.current)}>Aprobar estas prioridades</button></>}
+     {review.decision&&<p>{review.decision.notes}</p>}</>}
+    <h3>Resultados registrados en los últimos siete días</h3>{d.results.completed_tasks.length?d.results.completed_tasks.map((t:D)=><p key={t.id}>{t.title}</p>):<p>No hay tareas completadas registradas en esta ventana; no demuestra inactividad.</p>}
+    {d.results.accepted_priority_followup.map((x:D)=><p key={x.id}>Prioridad anterior: {x.state==='untracked_suggestion'?'Resultado pendiente de aportar':x.state}</p>)}
+    <details><summary>Historial de revisiones</summary>{d.recent_reviews.map((r:D)=><p key={r.id}>{r.week_start} · {labels[r.status]} · versión {r.version} · corte {r.as_of}</p>)}</details>
+   </section>
+  </>}
+  {edit!==undefined&&<GoalForm goal={edit} close={()=>setEdit(undefined)}/>}
+ </Page>
+}

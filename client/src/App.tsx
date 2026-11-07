@@ -9,6 +9,7 @@ import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth";
 import Shell from "./Shell";
 import PushSetup from "./PushSetup";
+import DirectionPanel from "./DirectionPanel";
 import NodoIsotipo from "./brand/NodoIsotipo";
 import { query, mutate, localDay } from "./api";
 import {
@@ -245,7 +246,7 @@ function Home() {
             </div>
             <NodoIsotipo size={92} />
           </section>
-          <div className="card"><Link to="/avisos">Ver avisos y resultados</Link> · <Link to="/negocios">Consultar negocios</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
+          <div className="card"><Link to="/direccion">Revisar dirección y metas</Link> · <Link to="/avisos">Ver avisos y resultados</Link> · <Link to="/negocios">Consultar negocios</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
           <div className="kpi-grid">
             <Stat
               label="Pendientes activos"
@@ -1837,6 +1838,7 @@ function Authenticated() {
         <Route path="/agenda" element={<Agenda />} />
         <Route path="/finanzas" element={<Finance />} />
         <Route path="/salud" element={<Health />} />
+        <Route path="/direccion" element={<DirectionPanel />} />
         <Route path="/negocios" element={<Businesses />} />
         <Route path="/memoria" element={<Memory />} />
         <Route path="/sistema" element={<System />} />

@@ -41,7 +41,7 @@ app.use("/api", (_req, res, next) => {
   next();
 });
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", version: "1.4.0" }),
+  res.json({ status: "ok", version: "1.5.0" }),
 );
 app.use("/api", (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
@@ -143,6 +143,7 @@ app.use(
 pushRoutes(app);
 const reads = new Set([
   "overview",
+  "direction",
   "businesses",
   "business",
   "notifications",
@@ -155,6 +156,10 @@ const reads = new Set([
   "system",
 ]);
 const writes = new Set([
+  "direction.goal.save",
+  "direction.goal.decide",
+  "direction.review.prepare",
+  "direction.review.decide",
   "notification.ack",
   "task.capture",
   "task.update",

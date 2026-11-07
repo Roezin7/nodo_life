@@ -16,6 +16,7 @@ const ITEMS: Item[] = [
   { ruta: "/", label: "Hoy", icono: "home" },
   { ruta: "/tareas", label: "Tareas", icono: "checks" },
   { ruta: "/avisos", label: "Avisos", icono: "checks" },
+  { ruta: "/direccion", label: "Dirección", icono: "target" },
   { ruta: "/negocios", label: "Negocios", icono: "target" },
   { ruta: "/agenda", label: "Agenda", icono: "calendar" },
   { ruta: "/finanzas", label: "Dinero", icono: "wallet" },
