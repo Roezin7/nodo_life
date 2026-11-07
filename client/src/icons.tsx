@@ -2,6 +2,8 @@ import type { SVGProps } from 'react';
 
 // Set mínimo de íconos estilo lucide (trazo, currentColor) — sin dependencias.
 const PATHS: Record<string, JSX.Element> = {
+  bell: (<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></>),
+  layers: (<><path d="m12 3 10 5-10 5L2 8Z"/><path d="m2 12 10 5 10-5M2 16l10 5 10-5"/></>),
   home: (
     <>
       <path d="M3 10.5 12 3l9 7.5" />

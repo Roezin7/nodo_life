@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./auth";
 import Shell from "./Shell";
 import PushSetup from "./PushSetup";
 import DirectionPanel from "./DirectionPanel";
+import { Icono } from "./icons";
 import NodoIsotipo from "./brand/NodoIsotipo";
 import { query, mutate, localDay } from "./api";
 import {
@@ -21,6 +22,8 @@ import {
   Avisos,
   toast,
   LineChart,
+  PagedList,
+  ViewTabs,
 } from "./ui";
 
 type Data = Record<string, any>;
@@ -90,21 +93,15 @@ function ErrorBox({
 }
 function Loading() {
   return (
-    <div className="empty-state" role="status">
-      Consultando Nodo…
-    </div>
+    <div className="loading-skeleton" role="status" aria-label="Consultando Nodo"><span>Reuniendo tu contexto…</span><div className="skeleton-block"/><div className="skeleton-block"/></div>
   );
 }
 function Empty({ children }: { children: ReactNode }) {
   return <div className="empty-state">{children}</div>;
 }
 function Evidence({ source, version }: { source?: string; version?: number }) {
-  return (
-    <div className="evidence">
-      {source || "Base canónica de Nodo"}
-      {version != null ? ` · versión ${version}` : ""}
-    </div>
-  );
+ if(!source&&!version)return null;
+ return <details className="evidence"><summary>Fuente y trazabilidad</summary><p>{source}{version ? ` · versión ${version}` : ""}</p></details>;
 }
 function Badge({ children }: { children: ReactNode }) {
   return <span className="n-badge">{children}</span>;
@@ -180,6 +177,7 @@ function Login() {
 }
 
 function Notifications() {
+ const [noticeView,setNoticeView]=useState("pending");
  const [d,reload,loading,error]=useLive<Data>("notifications");
  const [busy,setBusy]=useState<string|null>(null);
  const [ackError,setAckError]=useState<string|null>(null);
@@ -190,27 +188,27 @@ function Notifications() {
   catch(e){setAckError((e as Error).message)}finally{setBusy(null)}
  }
  return <Page titulo="Avisos" icono="checks" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
-  <PushSetup/>
+  <details className="card push-settings"><summary>Avisos en este dispositivo</summary><PushSetup/></details>
   <p>Recordatorios y resultados de Nodo. «Visto» confirma lectura; no termina tareas ni aprueba cambios.</p>
   <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. Activa y prueba los avisos en el bloque superior.</p>
   <ErrorBox error={error || ackError} retry={reload}/>
   {!d ? loading && <Loading/> : <>
    <section><h2>Próximos recordatorios</h2><p>{d.reminders.reminders[0] ? `${d.reminders.reminders[0].title} · ${stamp(d.reminders.reminders[0].event_at)}` : "No hay recordatorios abiertos registrados."}</p></section>
-   <section><h2>Para revisar</h2>
+   <section><h2>Para revisar</h2><ViewTabs value={noticeView} onChange={setNoticeView} items={[{id:"pending",label:"Sin leer"},{id:"all",label:"Todos"}]}/>{noticeView==="pending"&&!d.items.some((n:Data)=>!n.acknowledged_at)&&<Empty>Todo al día. No tienes avisos sin leer.</Empty>}
     {!d.items.length && <p>No hay avisos disponibles. Los próximos recordatorios aparecen abajo.</p>}
-    {d.items.map((n:Data)=><article className="card" key={n.id}>
+    {<PagedList resetKey={noticeView}>{d.items.filter((n:Data)=>noticeView==="all"||!n.acknowledged_at).map((n:Data)=><article className="card" key={n.id}>
      <h3>{n.title}</h3><p>{n.message || n.summary}</p>
      <small>{n.kind === "job" ? "Resultado de encargo" : "Recordatorio"} · {stamp(n.at || n.created_at)}</small>
      {n.acknowledged_at ? <p>Visto · {stamp(n.acknowledged_at)}</p> : <p><button className="btn-primary" disabled={busy!==null} onClick={()=>ack(n.id)}>{busy===n.id ? "Guardando…" : "Marcar como visto"}</button></p>}
      {n.kind === "job" && <p>La revisión técnica continúa desde el chat diario. Este botón no integra ni despliega código.</p>}
-    </article>)}
+    </article>)}</PagedList>}
     {d.truncated && <p>Hay más avisos de los que muestra esta consulta.</p>}
    </section>
    <section><h2>Recordatorios registrados</h2>
     {!d.reminders.reminders.length && <p>No hay recordatorios abiertos registrados.</p>}
-    {d.reminders.reminders.map((r:Data)=><article className="card" key={r.id}><h3>{r.title}</h3><p>{stamp(r.event_at)}</p>
+    {<PagedList>{d.reminders.reminders.map((r:Data)=><article className="card" key={r.id}><h3>{r.title}</h3><p>{stamp(r.event_at)}</p>
      {r.alerts.map((a:Data)=><p key={a.id}>{stamp(a.at)} · {a.message} · {({scheduled:"Programado en Nodo",external_scheduled:"Aviso externo existente",available:"Disponible para leer",acknowledged:"Visto",cancelled:"Cancelado"} as Data)[a.state] || a.state}</p>)}
-    </article>)}
+    </article>)}</PagedList>}
    </section>
   </>}
  </Page>
@@ -235,18 +233,16 @@ function Home() {
         ) : null
       ) : (
         <>
-          <section className="day-hero">
-            <div>
-              <p className="eyebrow">UN SOLO CONTEXTO · MÉXICO</p>
-              <h2>Lo que importa hoy.</h2>
-              <p>Tu trabajo, dinero y bienestar en el mismo lugar.</p>
-              <span className="evidence">
-                Lectura {stamp(d.read_at)} · {d.date}
-              </span>
+          <section className="day-hero home-hero">
+            <div className="hero-copy">
+              <p className="eyebrow">TU VIDA, EN PERSPECTIVA</p>
+              <h2>Todo conectado.<br/>Más espacio para ti.</h2>
+              <p>Tu trabajo, tu bienestar y lo que viene. Un día a la vez.</p>
+              <span className="hero-date">{new Intl.DateTimeFormat("es-MX",{weekday:"long",day:"numeric",month:"long",timeZone:"America/Mexico_City"}).format(new Date(d.date+"T12:00:00-06:00"))}</span>
             </div>
-            <NodoIsotipo size={92} />
+            <div className="hero-orbit" aria-hidden="true"><span className="orbit-line"/><span className="orbit-line"/><span className="orbit-line"/><span className="orbit-dot"/><NodoIsotipo size={125}/><span className="orbit-dot"/></div>
           </section>
-          <div className="card"><Link to="/direccion">Revisar dirección y metas</Link> · <Link to="/avisos">Ver avisos y resultados</Link> · <Link to="/negocios">Consultar negocios</Link><p>{d.attention?.items?.filter((x: Data) => !x.acknowledged_at).length || 0} pendientes de lectura · consulta la bandeja para revisar el detalle.</p></div>
+          <div className="home-quick"><Link className="quick-tile" to="/direccion"><span className="tile-icon"><Icono name="target" size={17}/></span>Mi dirección<span>↗</span></Link><Link className="quick-tile" to="/avisos"><span className="tile-icon"><Icono name="calendar" size={17}/></span>Avisos y resultados<span>↗</span></Link><Link className="quick-tile" to="/negocios"><span className="tile-icon"><Icono name="trending" size={17}/></span>Mis negocios<span>↗</span></Link></div>
           <div className="kpi-grid">
             <Stat
               label="Pendientes activos"
@@ -258,7 +254,7 @@ function Home() {
               }
             />
             <Stat
-              label="Saldo documental MXN"
+              label="Efectivo declarado · MXN"
               valor={cash(d.finance.totals_by_currency.MXN?.ledger_cash_cents)}
               sub="Declarado · sin conciliación bancaria"
             />
@@ -283,8 +279,8 @@ function Home() {
             />
           </div>
           <div className="two-cols">
-            <section className="card n-card">
-              <div className="section-head">
+            <section className="card n-card focus-card">
+              <div className="section-kicker">Enfoque</div><div className="section-head">
                 <h2>Siguiente paso</h2>
                 <Link to="/tareas">Ver tareas →</Link>
               </div>
@@ -305,7 +301,7 @@ function Home() {
               )}
             </section>
             <section className="card n-card">
-              <h2>Cuidarte también cuenta</h2>
+              <div className="section-kicker">Bienestar</div><h2>Cuidarte también cuenta</h2>
               <p>
                 {d.health.summary.weight_present
                   ? "Tu peso de hoy ya está registrado."
@@ -1061,7 +1057,7 @@ function Health() {
           </section>
           <section className="card n-card">
             <h2>Registro de {day}</h2>
-            {d.records.map((r: RecordItem) => (
+            <PagedList resetKey={day}>{d.records.map((r: RecordItem) => (
               <article className="list-row" key={r.id}>
                 <div className="section-head">
                   <Badge>{healthNames[r.kind]}</Badge>
@@ -1083,7 +1079,7 @@ function Health() {
                     (r.data.hours && `${r.data.hours} horas`) ||
                     "Estado declarado"}
                 </h3>
-                {Object.entries(r.data)
+                <p className="health-record-summary">{r.data.quantity || ""}{r.data.kcal!=null?` · ${r.data.kcal} kcal${r.data.estimated?" estimadas":""}`:""}{r.data.protein_g!=null?` · ${r.data.protein_g} g proteína`:""}</p><details><summary>Detalle y fuente</summary>{Object.entries(r.data)
                   .filter(([k]) => k !== "description")
                   .map(([k, v]) => (
                     <p className="detail" key={k}>
@@ -1121,9 +1117,9 @@ function Health() {
                       </strong>
                     </p>
                   ))}
-                <Evidence source={r.source} version={r.version} />
+                <Evidence source={r.source} version={r.version} /></details>
               </article>
-            ))}
+            ))}</PagedList>
             {!d.records.length && (
               <Empty>No hay registros para esta fecha.</Empty>
             )}
@@ -1499,7 +1495,7 @@ function Finance() {
             </section>
             <section className="card n-card">
               <h2>Cobros y pagos</h2>
-              {d.commitments.map((c: Data) => (
+              <PagedList pageSize={4}>{d.commitments.map((c: Data) => (
                 <div className="list-row" key={c.record.id}>
                   <Badge>
                     {c.record.data.direction === "in"
@@ -1518,14 +1514,14 @@ function Finance() {
                       c.record.data.expected_month ||
                       "Sin fecha exacta"}
                   </p>
-                  <small>{c.record.data.notes}</small>
+                  {c.record.data.notes&&<details><summary>Detalle del compromiso</summary><p>{c.record.data.notes}</p></details>}
                 </div>
-              ))}
+              ))}</PagedList>
             </section>
           </div>
-          <section className="card n-card">
-            <h2>Registros y correcciones</h2>
-            {d.records.map((r: RecordItem) => (
+          <details className="card n-card">
+            <summary>Registros y correcciones</summary>
+            <PagedList resetKey={String(d.finance_revision)}>{d.records.map((r: RecordItem) => (
               <div className="list-row" key={r.id}>
                 <div className="section-head">
                   <div>
@@ -1544,12 +1540,12 @@ function Finance() {
                 </div>
                 <Evidence source={r.source} version={r.version} />
               </div>
-            ))}
+            ))}</PagedList>
             {d.records_truncated && (
               <p>Historial parcial: más de 200 registros.</p>
             )}
             <Evidence source={`Finanzas · revisión ${d.finance_revision}`} />
-          </section>
+          </details>
           <p className="notice">
             La proyección combina vencimientos distintos: no es efectivo
             disponible ni utilidad. No se mueve dinero desde esta web. Los
@@ -1681,7 +1677,7 @@ function Memory() {
         ) : null
       ) : (
         <section className="card n-card">
-          {d.records.map((r: Data) => (
+          <PagedList resetKey={domain}>{d.records.map((r: Data) => (
             <article className="list-row memory-entry" key={r.id}>
               <div className="section-head">
                 <Badge>{r.domain}</Badge>
@@ -1689,10 +1685,10 @@ function Memory() {
                   Proponer corrección
                 </button>
               </div>
-              <p>{r.text}</p>
+              <details><summary>{r.text.length>170?r.text.slice(0,170)+"…":r.text}</summary><p>{r.text}</p></details>
               <Evidence source={r.source} version={r.version} />
             </article>
-          ))}
+          ))}</PagedList>
           {!d.records.length && <Empty>Sin documentos en este dominio.</Empty>}
           {d.truncated && (
             <p>Vista parcial: hay más de 50 documentos en este dominio.</p>

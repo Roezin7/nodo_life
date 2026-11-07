@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { Icono } from "./icons";
 import { onMutacion } from "./api";
 
@@ -51,10 +51,10 @@ export function Page({
   return (
     <div className="page">
       <header className="page-head">
-        <div className="page-title">
+        <div><div className="page-title">
           <Icono name={icono} size={24} className="ttl-icon" />
           <h1>{titulo}</h1>
-        </div>
+        </div><p className="page-caption">{{Hoy:"Un espacio para lo que importa.",Tareas:"Menos pendientes. Más claridad.",Avisos:"Lo importante, en el momento adecuado.",Dirección:"Tus metas. Tu siguiente movimiento.",Negocios:"La perspectiva de tus negocios.",Agenda:"Haz espacio para tu día.",Dinero:"Una mirada clara a tu capital.",Salud:"Tu bienestar, con perspectiva.",Memoria:"Lo que Nodo sabe, en contexto.",Sistema:"Todo conectado, a tu alcance."}[titulo] || "Tu vida, conectada."}</p></div>
         {accion}
       </header>
       <div className="tab-body">{children}</div>
@@ -299,7 +299,7 @@ export function Stat({
   return (
     <div className="stat-card">
       <span className="stat-label">{label}</span>
-      <span className="stat-val" style={color ? { color } : undefined}>
+      <span className="stat-val" data-text={/[a-záéíóú]{4}/i.test(valor) ? "true" : undefined} style={color ? { color } : undefined}>
         {valor}
       </span>
       {sub && <span className="stat-sub">{sub}</span>}
@@ -371,4 +371,14 @@ export function LineChart({
       />
     </svg>
   );
+}
+
+/** Presentation-only pagination. Filtering resets the displayed page; records remain intact. */
+export function PagedList({children,pageSize=6,resetKey=''}:{children:ReactNode;pageSize?:number;resetKey?:string}){
+ const items=Children.toArray(children);const [page,setPage]=useState(0);const count=Math.ceil(items.length/pageSize);const current=Math.min(page,Math.max(0,count-1));
+ useEffect(()=>setPage(0),[resetKey]);
+ return <>{items.slice(current*pageSize,(current+1)*pageSize)}{count>1&&<div className="list-pagination"><span>{current*pageSize+1}–{Math.min((current+1)*pageSize,items.length)} de {items.length}</span><div className="page-controls"><button aria-label="Página anterior" disabled={current===0} onClick={()=>setPage(current-1)}>←</button><span>{current+1} / {count}</span><button aria-label="Página siguiente" disabled={current>=count-1} onClick={()=>setPage(current+1)}>→</button></div></div>}</>;
+}
+export function ViewTabs({value,items,onChange}:{value:string;items:{id:string;label:string}[];onChange:(id:string)=>void}){
+ return <div className="view-tabs" role="group" aria-label="Vistas de la sección">{items.map(x=><button key={x.id} aria-pressed={value===x.id} onClick={()=>onChange(x.id)}>{x.label}</button>)}</div>;
 }

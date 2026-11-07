@@ -36,6 +36,6 @@ export default function PushSetup(){
  {device&&status?.this_device_active&&<><button className="btn-ghost" disabled={busy} onClick={test}>Enviar prueba</button><button className="btn-ghost" disabled={busy} onClick={disable}>Desactivar este dispositivo</button></>}
  {error&&<p role="alert">{error}</p>}{message&&<p role="status">{message}</p>}
  {status&&<p className="evidence">Proveedor: {status.attempts_by_state.accepted||0} aceptados · Navegador: {status.browser_display_reports} informes de visualización. Esto no confirma que hayas leído el aviso.</p>}
- <small>Nodo Vida 1.3 · Los envíos salen de Hetzner; falta comprobar la recepción en el teléfono y hacer la prueba con la Mac apagada.</small>
+ <small>Los envíos salen de Hetzner. La entrega depende del permiso y de la configuración de este dispositivo.</small>
  </section>
 }

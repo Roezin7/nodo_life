@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { Fragment, type ReactNode, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { useAuth } from "./auth";
 import { useTema } from "./theme";
@@ -15,16 +15,16 @@ interface Item {
 const ITEMS: Item[] = [
   { ruta: "/", label: "Hoy", icono: "home" },
   { ruta: "/tareas", label: "Tareas", icono: "checks" },
-  { ruta: "/avisos", label: "Avisos", icono: "checks" },
+  { ruta: "/avisos", label: "Avisos", icono: "bell" },
   { ruta: "/direccion", label: "Dirección", icono: "target" },
-  { ruta: "/negocios", label: "Negocios", icono: "target" },
+  { ruta: "/negocios", label: "Negocios", icono: "trending" },
   { ruta: "/agenda", label: "Agenda", icono: "calendar" },
   { ruta: "/finanzas", label: "Dinero", icono: "wallet" },
   { ruta: "/salud", label: "Salud", icono: "heart" },
-  { ruta: "/memoria", label: "Memoria", icono: "target" },
+  { ruta: "/memoria", label: "Memoria", icono: "layers" },
   { ruta: "/sistema", label: "Sistema", icono: "settings" },
 ];
-const BOTTOM = ["/", "/tareas", "/finanzas", "/salud"];
+const BOTTOM = ["/", "/direccion", "/finanzas", "/salud"];
 
 export default function Shell({ children }: { children: ReactNode }) {
   const { usuario, logout } = useAuth();
@@ -41,6 +41,8 @@ export default function Shell({ children }: { children: ReactNode }) {
   }, []);
   const [masOpen, setMasOpen] = useState(false);
   const { pathname } = useLocation();
+
+  useEffect(() => { setMasOpen(false); window.scrollTo({top:0,behavior:"instant" as ScrollBehavior}); }, [pathname]);
 
   const syncChip = (
     <span className={`ctx-chip ${!online ? "ctx-chip--off" : ""}`}>
@@ -62,10 +64,10 @@ export default function Shell({ children }: { children: ReactNode }) {
       <aside className="nav-rail">
         <div className="nav-brand">
           <NodoIsotipo size={30} />
-          <span className="nav-wordmark">NODO VIDA</span>
+          <span className="nav-wordmark">nodo<span style={{fontWeight:400,opacity:.5}}> vida</span></span>
         </div>
         <nav className="nav-links" aria-label="Secciones">
-          {ITEMS.map((i) => (
+          {ITEMS.map((i, index) => (<Fragment key={i.ruta}>{index===0&&<div className="nav-group-label">Tu día</div>}{index===4&&<div className="nav-group-label">Tu mundo</div>}{index===8&&<div className="nav-group-label">Contexto</div>}
             <NavLink
               key={i.ruta}
               to={i.ruta}
@@ -76,7 +78,7 @@ export default function Shell({ children }: { children: ReactNode }) {
             >
               <Icono name={i.icono} size={20} />
               <span>{i.label}</span>
-            </NavLink>
+            </NavLink></Fragment>
           ))}
         </nav>
         <div className="nav-foot">

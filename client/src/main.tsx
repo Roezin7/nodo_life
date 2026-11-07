@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./nodo-vida.css";
 import "./nodo.css";
+import "./refined.css";
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />
