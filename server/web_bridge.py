@@ -73,7 +73,7 @@ def execute(op,p):
     from pathlib import Path
     operational=json.loads(Path('/status/operational.json').read_text())
    except (OSError,ValueError):operational=None
-   return {'operational':operational,'version':'1.5.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
+   return {'operational':operational,'version':'1.6.0','storage':'Base canónica compartida de Nodo','timezone':'America/Mexico_City','calendar':'Google Calendar principal se consulta por suscripción privada cada5minutos. Sólo lectura; puede existir demora de publicación de Google.','notifications':'Canal Web Push instalado. Cada dispositivo requiere activación propia y prueba de recepción; tener un envío aceptado no significa que se haya leído.','offline':'No se guardan registros sin conexión.','read_at':datetime.now().astimezone().isoformat(),'context_revision':store.context_get(['sistema'],1)['revision']}
   raise ValueError('Operación no admitida')
  finally:store.close()
 
