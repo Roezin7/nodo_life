@@ -529,7 +529,7 @@ function Tasks() {
         ) : null
       ) : (
         <section className="card n-card">
-          {d.tasks
+          <PagedList resetKey={filter}>{d.tasks
             .filter(
               (t) =>
                 filter === "all" ||
@@ -552,7 +552,7 @@ function Tasks() {
                 <small>{stamp(t.review_at)}</small>
                 <Evidence source={t.source} version={t.version} />
               </article>
-            ))}
+            ))}</PagedList>
           {!d.tasks.some(
             (t) =>
               filter === "all" ||

@@ -13,6 +13,7 @@ function aplicar(t: Tema) {
   document.documentElement.dataset.tema = t;
   try {
     localStorage.setItem(CLAVE, t);
+    window.dispatchEvent(new CustomEvent("nodo-theme", {detail:t}));
   } catch {
     /* almacenamiento no disponible: el tema vive solo en memoria */
   }
@@ -23,8 +24,10 @@ export function useTema(): { tema: Tema; alternar: () => void } {
   const [tema, setTema] = useState<Tema>(temaActual);
 
   useEffect(() => {
-    document.documentElement.dataset.tema = tema;
-  }, [tema]);
+    const sync=()=>setTema(temaActual());
+    window.addEventListener("nodo-theme",sync);
+    return ()=>window.removeEventListener("nodo-theme",sync);
+  }, []);
 
   return {
     tema,
