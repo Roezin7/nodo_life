@@ -38,7 +38,9 @@ def execute(op,p):
   if op=='business':return Business(store).business_read(p['project_id'])
   if op=='overview':
    t=tasks.task_list(status='active');t['tasks']=[x for x in t['tasks'] if x['project']!='demo']
-   return {'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
+   direction=Direction(store).direction_read(today)
+   direction={k:direction[k]for k in ('accepted_plan','proposed_priorities','latest_review','pending_decisions')}
+   return {'direction':direction,'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health.health_day(today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
   if op=='notifications':
    reminders=Reminders(store).reminder_list();reminders['reminders']=[r for r in reminders['reminders']if r['project']!='demo'];return dict(Attention(store).read(),reminders=reminders)
   if op=='notification.ack':return Attention(store).ack(p['notice_id'],source,p['request_id'])

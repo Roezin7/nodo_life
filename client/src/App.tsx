@@ -288,7 +288,7 @@ function Home() {
                 <h2>Siguiente paso</h2>
                 <Link to="/tareas">Ver tareas →</Link>
               </div>
-              {d.tasks.tasks.length ? (
+              {d.direction?.latest_review?.status==='proposed' ? <div className="list-row"><Badge>Propuesta por revisar</Badge><h3>Elegir tus prioridades</h3><p>La revisión semanal está preparada. Puedes ajustar y aprobar hasta tres prioridades.</p><Link className="btn-primary" to="/direccion">Revisar dirección</Link></div> : d.direction?.accepted_plan?.priorities?.length ? <div className="list-row"><Badge>Tu prioridad elegida</Badge><h3>{d.direction.accepted_plan.priorities[0].title}</h3><p>{d.direction.accepted_plan.priorities[0].next_action}</p><Link to="/direccion">Revisar el plan</Link></div> : d.tasks.tasks.length ? (
                 d.tasks.tasks.slice(0, 3).map((t: Task) => (
                   <div className="list-row" key={t.id}>
                     <Badge>{projectLabels[t.project]}</Badge>

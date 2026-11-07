@@ -30,6 +30,8 @@ class Integration(unittest.TestCase):
   with self.assertRaises(ValueError):self.call('direction.goal.decide',goal_id=g['id'],expected_version=1,decision='active',human_confirmed=False,evidence='No',request_id=self.key())
  def test_direction_review_read_write_shared(self):
   r=self.call('direction.review.prepare',as_of='2026-11-06',request_id=self.key())['review'];self.assertEqual(self.call('direction',as_of='2026-11-06')['latest_review']['id'],r['id'])
+ def test_overview_direction_does_not_close_task(self):
+  t=Inbox(self.store).task_capture('nodo','Antigua','Revisar','Test',self.key())['task'];self.call('direction.review.prepare',as_of='2026-11-06',request_id=self.key());r=self.call('overview');self.assertEqual(r['direction']['latest_review']['status'],'proposed');self.assertEqual(Inbox(self.store).task_get(t['id'])['task']['status'],'open')
  def test_tasks_shared_version_idempotency(self):
   p=dict(project='iberico',title='Prueba',next_action='Revisar',request_id=self.key());a=self.call('task.capture',**p);b=self.call('task.capture',**p);self.assertEqual(a,b)
   self.assertEqual(Inbox(self.store).task_get(a['task']['id'])['task']['title'],'Prueba')
