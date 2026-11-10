@@ -12,6 +12,15 @@ class Integration(unittest.TestCase):
  def tearDown(self):self.store.close();self.tmp.cleanup()
  def key(self):return str(uuid.uuid4())
  def call(self,op,**params):return bridge.execute(op,params)
+ def test_analysis_matches_shared_motor_without_writes(self):
+  h=Health(self.store)
+  h.health_capture('weight','2026-11-09',{'kg':78.5},'Test',self.key(),False)
+  before=self.store.db.total_changes
+  d=self.call('health.analysis',date='2026-11-09')
+  self.assertEqual(d['weight']['measured_days'],1)
+  self.assertIsNone(d['weight']['mean_kg'])
+  self.assertEqual(d['nutrition']['complete_days'],0)
+  self.assertEqual(self.store.db.total_changes,before)
  def test_history_keeps_weight_date_and_excludes_future_demo(self):
   h=Health(self.store)
   h.health_capture('weight','2026-11-05',{'kg':79.08},'Test',self.key(),False)

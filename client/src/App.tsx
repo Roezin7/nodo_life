@@ -1,3 +1,4 @@
+import HealthAnalysisPanel from "./HealthAnalysisPanel";
 import {
   useEffect,
   useRef,
@@ -947,6 +948,7 @@ function Health() {
     [edit, setEdit] = useState<RecordItem | null | undefined>(undefined);
   const [d, reload, loading, error] = useLive<Data>("health", { date: day });
   const [trend] = useLive<Data>("health.trend", { date: day });
+  const [analysis, reloadAnalysis, , analysisError] = useLive<Data>("health.analysis", {date:day});
   const nutrition = d?.summary.estimated_totals_of_known_entries;
   const specs = [
     {
@@ -993,6 +995,8 @@ function Health() {
           Actualizar
         </button>
       </div>
+      <ErrorBox error={analysisError} retry={reloadAnalysis} />
+      {analysis?.as_of===day&&<HealthAnalysisPanel data={analysis}/>}
       <p className="notice">Viendo <strong>{day}</strong>{day===localDay()?' · hoy':' · fecha histórica'}. Sólo se muestran los registros de esa fecha; no se trasladan de un día a otro.</p>
       <ErrorBox error={error} retry={reload} />
       {!d || d.event_date!==day ? (

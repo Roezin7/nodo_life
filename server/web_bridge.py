@@ -65,6 +65,9 @@ def execute(op,p):
    return tasks.task_update(p['task_id'],p['expected_version'],p['changes'],source,p['request_id'])
   if op=='health':
    result=health.health_day(p.get('date',today));result['history']=health_history(health,p.get('date',today));return result
+  if op=='health.analysis':
+   from health_analysis import HealthAnalysis
+   return HealthAnalysis(store).summary(p.get('date',today),p.get('window',7))
   if op=='health.trend':
    end=datetime.fromisoformat(p.get('date',today)).date();days=[health.health_day((end-timedelta(days=i)).isoformat()) for i in range(13,-1,-1)]
    return {'days':[{'date':d['event_date'],'weights':[r['data']['kg'] for r in d['records'] if r['kind']=='weight'],'summary':d['summary']} for d in days]}

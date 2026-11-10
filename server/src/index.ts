@@ -151,6 +151,7 @@ const reads = new Set([
   "tasks",
   "health",
   "health.trend",
+  "health.analysis",
   "finance",
   "memory",
   "system",
