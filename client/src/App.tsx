@@ -102,6 +102,9 @@ function Loading() {
 function Empty({ children }: { children: ReactNode }) {
   return <div className="empty-state">{children}</div>;
 }
+function ContextDetails({ title, children }: { title: string; children: ReactNode }) {
+ return <details className="context-details"><summary>{title}</summary><div className="context-details-body">{children}</div></details>;
+}
 function Evidence({ source, version }: { source?: string; version?: number }) {
  if(!source&&!version)return null;
  return <details className="evidence"><summary>Fuente y trazabilidad</summary><p>{source}{version ? ` · versión ${version}` : ""}</p></details>;
@@ -260,7 +263,7 @@ function Home() {
             <Stat
               label="Efectivo declarado · MXN"
               valor={cash(d.finance.totals_by_currency.MXN?.ledger_cash_cents)}
-              sub="Declarado · sin conciliación bancaria"
+              sub="Saldo declarado"
             />
             <Stat
               label={d.health.summary.weight_present?"Peso de hoy":"Último peso medido"}
@@ -999,7 +1002,7 @@ function Health() {
       </div>
       <ErrorBox error={analysisError} retry={reloadAnalysis} />
       {analysis?.as_of===day&&<HealthAnalysisPanel data={analysis}/>}
-      <p className="notice">Viendo <strong>{day}</strong>{day===localDay()?' · hoy':' · fecha histórica'}. Sólo se muestran los registros de esa fecha; no se trasladan de un día a otro.</p>
+      <p className="record-meta">Registros del <strong>{day}</strong> · {day===localDay()?'Hoy':'Histórico'}</p>
       <ErrorBox error={error} retry={reload} />
       {!d || d.event_date!==day ? (
         loading ? (
@@ -1024,7 +1027,7 @@ function Health() {
               }
               sub={
                 d.summary.nutrition_partial
-                  ? "Parcial · faltan cantidades nutricionales"
+                  ? "Datos nutricionales incompletos"
                   : "Suma de ingestas registradas"
               }
             />
@@ -1035,7 +1038,7 @@ function Health() {
                   ? "Sin dato"
                   : `${nutrition.protein_g} g`
               }
-              sub="No es una meta nutricional"
+              sub="En las ingestas registradas"
             />
             <Stat
               label="Estado del día"
@@ -1049,7 +1052,7 @@ function Health() {
               }
             />
           </div>
-          {d.history?.latest_weight&&<p className="notice">Última medición hasta esta fecha: <strong>{d.history.latest_weight.kg} kg · {d.history.latest_weight.event_date}</strong>. {d.history.latest_weight.is_reference?'Referencia histórica; no es un pesaje del día seleccionado.':'Medición del día seleccionado.'}</p>}
+          {d.history?.latest_weight?.is_reference&&<p className="data-caption">Medición anterior: <strong>{d.history.latest_weight.kg} kg</strong> · {d.history.latest_weight.event_date}. No corresponde al día seleccionado.</p>}
           <section className="card n-card">
             <h2>Tu peso, con perspectiva</h2>
             {trend && (
@@ -1059,13 +1062,10 @@ function Health() {
                 )}
               />
             )}
-            <p className="muted">
-              Últimos 14 días. Sólo mediciones registradas; la gráfica conecta
-              puntos, no rellena días. No confirma grasa perdida ni déficit.
-            </p>
+            <p className="record-meta">Últimos 14 días · mediciones registradas</p>
           </section>
           <section className="card n-card">
-            <h2>Registro de {day}</h2><p>{d.records.length} registros guardados · {d.summary.consumed_entries} alimentos y bebidas. Se muestran cuatro registros por página; usa las flechas para ver el resto.</p>
+            <h2>Registro de {day}</h2><p className="record-meta">{d.records.length} registros · {d.summary.consumed_entries} alimentos y bebidas</p>
             <PagedList pageSize={4} resetKey={day}>{d.records.map((r: RecordItem) => (
               <article className="list-row" key={r.id}>
                 <div className="section-head">
@@ -1134,11 +1134,7 @@ function Health() {
             )}
             <Evidence source={`Salud · revisión ${d.health_revision}`} />
           </section>
-          <p className="muted">
-            El registro ayuda a observar hábitos. Las calorías y macros
-            desconocidos no se inventan; una estimación diaria no se suma dos
-            veces. Ajustes de dieta y rutina siguen sujetos a revisión.
-          </p>
+          <ContextDetails title="Sobre tus registros de salud"><p>Las calorías y los macros reflejan sólo los valores conocidos. Las estimaciones se identifican en cada registro y los días sin datos quedan vacíos.</p><p>Las gráficas muestran mediciones de peso; por sí solas no confirman pérdida de grasa ni déficit. Una estimación diaria no se suma de nuevo a las comidas.</p><p>Los cambios de dieta y rutina se revisan contigo.</p></ContextDetails>
         </>
       )}
       {edit !== undefined && (
@@ -1449,7 +1445,7 @@ function Finance() {
                 </p>
                 <div className="kpi-grid">
                   <Stat
-                    label="Saldo documental"
+                    label="Saldo declarado"
                     valor={cash(t.ledger_cash_cents, currency)}
                     sub="Declarado · no conciliado"
                   />
@@ -1481,10 +1477,8 @@ function Finance() {
                   <strong className="money-large">
                     {cash(a.ledger_balance_cents, a.record.data.currency)}
                   </strong>
-                  <p className="muted">
-                    Saldo inicial {a.record.data.opening_date} ·{" "}
-                    {a.record.data.notes}
-                  </p>
+                  <p className="record-meta">Saldo de referencia · {a.record.data.opening_date}</p>
+                  {a.record.data.notes && <ContextDetails title="Notas y ajustes de este saldo"><p className="original-note">{a.record.data.notes}</p></ContextDetails>}
                 </div>
               ))}
               {d.budgets.map((b: Data) => (
@@ -1555,11 +1549,8 @@ function Finance() {
             )}
             <Evidence source={`Finanzas · revisión ${d.finance_revision}`} />
           </details>
-          <p className="notice">
-            La proyección combina vencimientos distintos: no es efectivo
-            disponible ni utilidad. No se mueve dinero desde esta web. Los
-            saldos observados no ajustan la contabilidad automáticamente.
-          </p>
+          <p className="data-caption">La proyección no es dinero disponible ni utilidad.</p>
+          <ContextDetails title="Cómo interpretar tus cifras"><p>Los saldos son declarados, sin conciliación bancaria. La proyección reúne cobros y pagos de distintas fechas y descuenta las reservas indicadas.</p><p>Registrar un saldo observado no ajusta automáticamente el historial. Esta web no mueve dinero.</p></ContextDetails>
         </>
       )}
       {edit !== undefined && (

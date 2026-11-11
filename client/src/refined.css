@@ -46,3 +46,13 @@ a.nav-link,a.nav-link:visited{color:var(--ink-2)}a.nav-link--on,a.nav-link--on:v
 @media(max-width:800px){.view-tabs{width:100%}.view-tabs button{flex:0 0 auto}.hero-copy{max-width:75%}.card>.btn-primary{align-self:stretch}}
 .recent-health{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}.recent-health-day{display:flex;flex-direction:column;gap:8px;padding:18px;border-radius:16px;background:var(--surface-2);color:var(--ink)!important;font-size:12px;border:1px solid transparent;transition:border-color .2s}.recent-health-day:hover{border-color:var(--brand)}.recent-health-day>span{color:var(--ink-2)}.recent-health-day>small{font-size:10px;color:var(--brand)}
 @media(max-width:800px){.recent-health{grid-template-columns:1fr}.recent-health-day{padding:16px}}
+
+/* Keep decisions visible; reveal bookkeeping and methodology on request. */
+.record-meta{font-size:12px;color:var(--ink-3);line-height:1.5;margin:8px 0}
+.data-caption{font-size:12px;color:var(--ink-2);line-height:1.6;max-width:72ch}
+.context-details{border-top:1px solid var(--border);margin-top:12px;padding-top:0;min-width:0}
+.context-details>summary{font-size:12px;font-weight:500;color:var(--ink-2);min-height:44px;padding:10px 0;gap:16px}
+.context-details>summary:focus-visible{outline:2px solid var(--brand);outline-offset:4px;border-radius:6px}
+.context-details-body{padding:4px 0 12px;max-width:76ch;color:var(--ink-2);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.context-details-body>p{margin:0 0 10px}.context-details-body>p:last-child{margin-bottom:0}
+.context-details .original-note{white-space:pre-wrap;font-size:12px;color:var(--ink-3);line-height:1.8}
