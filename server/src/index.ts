@@ -145,6 +145,7 @@ const reads = new Set([
   "overview",
   "direction",
   "businesses",
+  "projects",
   "business",
   "notifications",
   "agenda",

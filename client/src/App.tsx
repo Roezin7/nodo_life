@@ -73,6 +73,8 @@ const statusLabels: Data = {
 };
 const projectLabels: Data = {
   nodo: "Nodo",
+  altos: "Altos Entertainment",
+  bar_centro: "Bar del Centro",
   iberico: "Ibérico",
   casa_blanca: "La Casa Blanca",
 };
@@ -282,7 +284,7 @@ function Home() {
                 <h2>Siguiente paso</h2>
                 <Link to="/tareas">Ver tareas →</Link>
               </div>
-              {d.direction?.latest_review?.status==='proposed' ? <div className="list-row"><Badge>Propuesta por revisar</Badge><h3>Elegir tus prioridades</h3><p>La revisión semanal está preparada. Puedes ajustar y aprobar hasta tres prioridades.</p><Link className="btn-primary" to="/direccion">Revisar dirección</Link></div> : d.direction?.accepted_plan?.priorities?.length ? <div className="list-row"><Badge>Tu prioridad elegida</Badge><h3>{d.direction.accepted_plan.priorities[0].title}</h3><p>{d.direction.accepted_plan.priorities[0].next_action}</p><Link to="/direccion">Revisar el plan</Link></div> : d.tasks.tasks.length ? (
+              {d.accompaniment?.policy?.enabled ? <div><Badge>Acompañamiento paso a paso</Badge><p>Recordatorios, pendientes y contexto. El plan de ingresos queda para más adelante.</p><p>{d.accompaniment.morning.weight_already_recorded?'El peso de hoy ya está registrado.':'Si te pesaste hoy, puedes registrar el dato; no usamos una medición anterior como la de hoy.'}</p>{d.accompaniment.commitments_today.slice(0,3).map((c:Data)=><div className="list-row" key={c.id}><strong>{c.title}</strong><p>{c.all_day?'Todo el día':stamp(c.at)} · {c.kind==='task_review'?'Revisión de tarea':c.kind==='reminder'?'Aviso Nodo':'Calendario'}</p></div>)}{d.accompaniment.due_task_reviews.filter((t:Task)=>!d.accompaniment.commitments_today.some((c:Data)=>c.kind==='task_review'&&c.source_id===t.id)).slice(0,1).map((t:Task)=><div className="list-row" key={t.id}><strong>{t.title}</strong><p>{t.next_action}</p><small>Revisión prevista: {stamp(t.review_at)} · estado pendiente de confirmar</small></div>)}{!d.accompaniment.commitments_today.length&&!d.accompaniment.due_task_reviews.length&&<p>Sin compromisos fechados registrados para hoy; puedes indicarme tu siguiente pendiente.</p>}<Link to="/avisos">Abrir avisos</Link> · <Link to="/negocios">Ver proyectos</Link></div> : d.direction?.latest_review?.status==='proposed' ? <div className="list-row"><Badge>Propuesta por revisar</Badge><h3>Elegir tus prioridades</h3><p>La revisión semanal está preparada. Puedes ajustar y aprobar hasta tres prioridades.</p><Link className="btn-primary" to="/direccion">Revisar dirección</Link></div> : d.direction?.accepted_plan?.priorities?.length ? <div className="list-row"><Badge>Tu prioridad elegida</Badge><h3>{d.direction.accepted_plan.priorities[0].title}</h3><p>{d.direction.accepted_plan.priorities[0].next_action}</p><Link to="/direccion">Revisar el plan</Link></div> : d.tasks.tasks.length ? (
                 d.tasks.tasks.slice(0, 3).map((t: Task) => (
                   <div className="list-row" key={t.id}>
                     <Badge>{projectLabels[t.project]}</Badge>
@@ -1613,7 +1615,10 @@ const businessGroups: Data = {sales_7d:"Ventas importadas · últimos 7 días",p
 function Businesses() {
  const [businessView,setBusinessView]=useState("iberico");
  const [d,reload,loading,error]=useLive<Data>("businesses");
- return <Page titulo="Negocios" icono="target" accion={<button className="btn-ghost" onClick={reload}>Actualizar</button>}>
+ const [portfolio,reloadPortfolio,,portfolioError]=useLive<Data>("projects");
+ return <Page titulo="Negocios" icono="target" accion={<button className="btn-ghost" onClick={()=>{reload();reloadPortfolio();}}>Actualizar</button>}>
+  <ErrorBox error={portfolioError} retry={reloadPortfolio}/>
+  <section className="card n-card"><h2>Proyectos por eventos y en planeación</h2><p>Seguimiento documental con fecha. No implica operación activa ni sincronización de los workspaces.</p>{portfolio?.projects.map((p:Data)=><div className="card" key={p.id}><h3>{p.name}</h3><Badge>{p.followup?.stage||'Contexto por completar'}</Badge><p>{p.followup?.summary}</p><p><strong>Última actividad documentada:</strong> {p.followup?.last_activity_date||'Sin fecha confirmada'}</p><p><strong>Siguiente paso de seguimiento:</strong> {p.followup?.next_review}</p><details><summary>Contexto y fuentes</summary><p>{p.followup?.limitations}</p><small>{p.followup?.source_label} · revisión de lectura {p.followup?.reviewed_on}</small><p style={{overflowWrap:'anywhere'}}>{p.workspace}</p></details></div>)}</section>
   <p>La operación de tus negocios, con su fuente y fecha. Las cifras se mantienen separadas de tu dinero personal.</p>
   <ErrorBox error={error} retry={reload}/>
   {!d&&loading&&<Loading/>}

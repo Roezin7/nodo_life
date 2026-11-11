@@ -12,6 +12,14 @@ class Integration(unittest.TestCase):
  def tearDown(self):self.store.close();self.tmp.cleanup()
  def key(self):return str(uuid.uuid4())
  def call(self,op,**params):return bridge.execute(op,params)
+ def test_accompaniment_and_projects_share_canonical_source(self):
+  from memory import canonical
+  from accompaniment import PROFILE_ID
+  records=[dict(id=PROFILE_ID,domain='preferencias',version=1,source='test',text=json.dumps({'enabled':True,'financial_planning':'deferred'})),dict(id='project-map:altos',domain='proyectos_detalle',version=2,source='test',text=json.dumps({'id':'altos','name':'Altos','followup':{'last_activity_date':'2026-09-19'}}))]
+  for r in records:self.store.db.execute('INSERT INTO records VALUES(?,?,?,?,?)',(r['id'],r['domain'],canonical(r),r['source'],r['version']))
+  self.assertEqual(self.call('projects')['projects'][0]['record_version'],2)
+  self.assertFalse(self.call('projects')['projects'][0]['execution_available'])
+  self.assertEqual(self.call('overview')['accompaniment']['policy']['financial_planning'],'deferred')
  def test_analysis_matches_shared_motor_without_writes(self):
   h=Health(self.store)
   h.health_capture('weight','2026-11-09',{'kg':78.5},'Test',self.key(),False)
