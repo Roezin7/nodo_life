@@ -12,7 +12,7 @@ export default function HealthAnalysisPanel({ data: d }: { data: any }) {
       </div></div>
       <div className="kpi-grid">
         <div><small>Peso medio</small><h3>{w.mean_kg == null ? 'Sin datos suficientes' : `${w.mean_kg} kg`}</h3><p>{w.measured_days} fechas con medición</p></div>
-        <div><small>Días de alimentación completos</small><h3>{completeDays} / {d.window_days}</h3><p>Confirmados por ti</p></div>
+        <div><small>Días de alimentación completos</small><h3>{completeDays} / {d.window_days}</h3><p>Confirmados por ti{d.days.some((x:any)=>x.closure_mode==='automatic')&&` · ${d.days.filter((x:any)=>x.closure_mode==='automatic').length} cierres automáticos aparte`}</p></div>
         <div><small>Días con actividad registrada</small><h3>{d.days.filter((x: any) => x.workouts.length).length}</h3><p>Entrenamiento o deporte</p></div>
       </div>
       {points.length > 0 && <figure style={{ margin: '20px 0' }}>
@@ -44,7 +44,7 @@ export default function HealthAnalysisPanel({ data: d }: { data: any }) {
         <summary>Actividad y sensaciones por día</summary>
         <div className="context-details-body">{d.days.filter((x: any) => x.consumed_entries || x.workouts.length || x.wellbeing.length).map((day: any) => <div className="list-row" key={day.date}>
           <strong>{day.date}</strong>
-          <p>{day.consumed_entries} ingestas · {day.meals_complete === true ? 'Comidas completas' : 'Sin cierre confirmado'} · {day.known_totals.kcal == null ? 'Energía sin estimar' : `${day.known_totals.kcal} kcal conocidas`}</p>
+          <p>{day.consumed_entries} ingestas · {day.meals_complete === true ? 'Comidas completas' : day.closure_mode === 'automatic' ? 'Cerrado automáticamente' : 'Sin cierre confirmado'} · {day.known_totals.kcal == null ? 'Energía sin estimar' : `${day.known_totals.kcal} kcal conocidas`}</p>
           {day.workouts.map((x: any) => <p key={x.id}>{x.description} · {x.elapsed_minutes ?? 'Desconocidos'} min transcurridos · {x.active_minutes ?? 'Desconocidos'} min activos</p>)}
           {day.wellbeing.map((x: any) => <p key={x.id}>{x.data.description || `${x.data.hours ?? '—'} h de sueño`}</p>)}
         </div>)}</div>

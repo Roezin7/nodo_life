@@ -280,7 +280,7 @@ function Home() {
               }
             />
           </div>
-          <section className="card n-card"><div className="section-head"><h2>Tu registro reciente</h2><Link to="/salud">Abrir Salud →</Link></div><p>Inicio muestra hoy. Tus registros anteriores siguen aquí, en su fecha.</p><div className="recent-health">{[...(d.health_history?.days||[])].reverse().filter((x:Data)=>x.record_count>0).map((x:Data)=><Link className="recent-health-day" key={x.date} to={`/salud?fecha=${x.date}`}><strong>{x.date}</strong><span>{x.summary.consumed_entries} ingestas · {x.record_count} registros</span><span>{x.summary.estimated_totals_of_known_entries.kcal==null?'Calorías sin estimar':`${x.summary.estimated_totals_of_known_entries.kcal} kcal registradas`}</span><small>{x.summary.meals_complete===true?'Día declarado completo':'Día sin cierre confirmado'} · Ver registros ↗</small></Link>)}</div>{!d.health_history?.days?.some((x:Data)=>x.record_count>0)&&<p>Sin registros en los últimos siete días. No equivale a consumo cero.</p>}</section>
+          <section className="card n-card"><div className="section-head"><h2>Tu registro reciente</h2><Link to="/salud">Abrir Salud →</Link></div><p>Inicio muestra hoy. Tus registros anteriores siguen aquí, en su fecha.</p><div className="recent-health">{[...(d.health_history?.days||[])].reverse().filter((x:Data)=>x.record_count>0).map((x:Data)=><Link className="recent-health-day" key={x.date} to={`/salud?fecha=${x.date}`}><strong>{x.date}</strong><span>{x.summary.consumed_entries} ingestas · {x.record_count} registros</span><span>{x.summary.estimated_totals_of_known_entries.kcal==null?'Calorías sin estimar':`${x.summary.estimated_totals_of_known_entries.kcal} kcal registradas`}</span><small>{x.summary.meals_complete===true?'Día declarado completo':x.summary.closure_mode==='automatic'?'Cerrado automáticamente':'Día sin cierre confirmado'} · Ver registros ↗</small></Link>)}</div>{!d.health_history?.days?.some((x:Data)=>x.record_count>0)&&<p>Sin registros en los últimos siete días. No equivale a consumo cero.</p>}</section>
           <div className="two-cols">
             <section className="card n-card focus-card">
               <div className="section-kicker">Enfoque</div><div className="section-head">
@@ -909,7 +909,7 @@ const healthSpecs: Record<string, Spec[]> = {
     {
       key: "meals_complete",
       label: "Registro de comidas",
-      options: options({ true: "Completo", false: "Aún abierto" }),
+      options: options({ true: "Completo confirmado", false: "Reabrir registro" }),
     },
     {
       key: "activity",
@@ -1042,9 +1042,9 @@ function Health() {
             />
             <Stat
               label="Estado del día"
-              valor={d.summary.meals_complete ? "Completo" : "Abierto"}
+              valor={d.summary.meals_complete ? "Completo" : d.summary.journal_closed ? "Cerrado" : "Abierto"}
               sub={
-                d.summary.activity_declared
+                d.summary.closure_mode === "automatic" ? "Automático · editable" : d.summary.activity_declared
                   ? { trained: "Gimnasio", sport: "Deporte", rest: "Descanso" }[
                       d.summary.activity_declared as string
                     ]
@@ -1052,6 +1052,7 @@ function Health() {
               }
             />
           </div>
+          {d.summary.closure_mode === "automatic" && <p className="data-caption">Cerrado a las 23:55. Puedes seguir agregando comidas. <button className="btn-ghost" onClick={()=>{setKind("day_status");setEdit(null);}}>Revisar cierre</button></p>}
           {d.history?.latest_weight?.is_reference&&<p className="data-caption">Medición anterior: <strong>{d.history.latest_weight.kg} kg</strong> · {d.history.latest_weight.event_date}. No corresponde al día seleccionado.</p>}
           <section className="card n-card">
             <h2>Tu peso, con perspectiva</h2>
@@ -1108,13 +1109,14 @@ function Health() {
                             estimated: "Estimación",
                             assumptions: "Fuente / supuestos",
                             meals_complete: "Comidas completas",
+                            closure: "Cierre del registro",
                             activity: "Actividad",
                             pain: "Dolor",
                           } as Data
                         )[k] || k}
                       </span>
                       <strong>
-                        {v == null
+                        {k === "closure" ? ({automatic:"Automático",confirmed:"Confirmado",open:"Abierto"} as Data)[String(v)] || String(v) : v == null
                           ? "Desconocido"
                           : typeof v === "boolean"
                             ? v
@@ -1171,6 +1173,7 @@ function Health() {
                   ? val === true || val === "true"
                   : val;
             }
+            if (kind === "day_status" && "meals_complete" in data) delete data.closure;
             return edit
               ? mutate(
                   "health.correct",
