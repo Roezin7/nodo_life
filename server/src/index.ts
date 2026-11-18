@@ -163,6 +163,7 @@ const writes = new Set([
   "direction.review.prepare",
   "direction.review.decide",
   "notification.ack",
+  "morning.save",
   "task.capture",
   "task.update",
   "health.capture",

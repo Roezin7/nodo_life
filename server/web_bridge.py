@@ -32,6 +32,10 @@ def execute(op,p):
  today=datetime.now(ZoneInfo('America/Mexico_City')).date().isoformat()
  source='NODO Vida · captura autenticada de Arturo'
  try:
+  if op=='morning.save':
+   if p['event_date']!=today:raise ValueError('Cambió la fecha. Actualiza la página.')
+   from morning_checkin import MorningCheckIn
+   return MorningCheckIn(store).save(today,p['question'],p['answer'],p['expected_version'],p['request_id'],source)
   if op.startswith('push.'):
    push=PushStore(store)
    if op=='push.status':return push.status(p.get('device_id'))

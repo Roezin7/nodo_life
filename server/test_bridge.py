@@ -23,6 +23,25 @@ class Integration(unittest.TestCase):
   self.call('notification.ack',notice_id=state['alert_id'],request_id=self.key())
   self.assertEqual(self.call('notifications')['opening_session']['state'],'responded')
   self.assertEqual(self.call('overview')['accompaniment']['opening_session']['state'],'responded')
+ def test_morning_answers_resume_across_chat_and_web(self):
+  from server import dispatch
+  from datetime import datetime
+  from zoneinfo import ZoneInfo
+  day=datetime.now(ZoneInfo('America/Mexico_City')).date().isoformat()
+  def opening():
+   result=dispatch(self.store,'tools/call',{'name':'daily_open','arguments':{}})
+   return json.loads(result['content'][0]['text'])['accompaniment']['checkin']
+  first={'event_date':day,'question':'habits','answer':'Leí diez minutos','expected_version':0,'request_id':self.key()}
+  result=dispatch(self.store,'tools/call',{'name':'morning_checkin_save','arguments':first})
+  self.assertFalse(result['isError'])
+  self.assertEqual(self.call('overview')['accompaniment']['checkin']['next_question'],'wellbeing')
+  skip={'event_date':day,'question':'wellbeing','answer':None,'expected_version':0,'request_id':self.key()}
+  self.assertEqual(self.call('morning.save',**skip),self.call('morning.save',**skip))
+  with self.assertRaises(ValueError):self.call('morning.save',**dict(skip,request_id=self.key()))
+  self.assertEqual(opening()['next_question'],'priority')
+  self.call('morning.save',**dict(first,answer='Leí y caminé',expected_version=1,request_id=self.key()))
+  self.assertEqual(opening()['answers']['habits']['answer'],'Leí y caminé')
+  self.assertEqual(opening()['answers']['wellbeing']['status'],'skipped')
  def test_accompaniment_and_projects_share_canonical_source(self):
   from memory import canonical
   from accompaniment import PROFILE_ID

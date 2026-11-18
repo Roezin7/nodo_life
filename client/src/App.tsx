@@ -1,4 +1,5 @@
 import HealthAnalysisPanel from "./HealthAnalysisPanel";
+import MorningQuestions from "./MorningQuestions";
 import MorningCheckIn from "./MorningCheckIn";
 import {
   useEffect,
@@ -243,6 +244,7 @@ function Home() {
       ) : (
         <>
           <MorningCheckIn opening={d.accompaniment?.opening_session} onConfirmed={reload}/>
+          {d.accompaniment?.checkin && <MorningQuestions key={d.date} checkin={d.accompaniment.checkin} reload={reload}/>}
           <section className="day-hero home-hero">
             <div className="hero-copy">
               <p className="eyebrow">TU VIDA, EN PERSPECTIVA</p>
