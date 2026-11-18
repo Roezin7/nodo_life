@@ -59,7 +59,11 @@ def execute(op,p):
    support=Accompaniment(store).read(today,health_today,t,commitments)
    return {'accompaniment':support,'direction':direction,'date':today,'read_at':datetime.now().astimezone().isoformat(),'tasks':t,'health':health_today,'health_history':health_history(health,today),'finance':finance.finance_summary(today,False),'context':store.context_get(['continuidad','objetivos','proyectos'],50),'attention':Attention(store).read()}
   if op=='notifications':
-   reminders=Reminders(store).reminder_list();reminders['reminders']=[r for r in reminders['reminders']if r['project']!='demo'];return dict(Attention(store).read(),reminders=reminders)
+   opening={'day':today,'state':'not_started'}
+   if store.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='morning_sessions'").fetchone():
+    from morning import Morning
+    opening=Morning(store).read(today)
+   reminders=Reminders(store).reminder_list();reminders['reminders']=[r for r in reminders['reminders']if r['project']!='demo'];return dict(Attention(store).read(),reminders=reminders,opening_session=opening)
   if op=='notification.ack':return Attention(store).ack(p['notice_id'],source,p['request_id'])
   if op=='agenda':return Agenda(store).read(p.get('date',today),p.get('days',7))
   if op=='tasks':

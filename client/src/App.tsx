@@ -1,4 +1,5 @@
 import HealthAnalysisPanel from "./HealthAnalysisPanel";
+import MorningCheckIn from "./MorningCheckIn";
 import {
   useEffect,
   useRef,
@@ -200,6 +201,7 @@ function Notifications() {
   <p className="evidence">Esta bandeja se actualiza al abrirla y cada minuto mientras está visible. Activa y prueba los avisos en el bloque superior.</p>
   <ErrorBox error={error || ackError} retry={reload}/>
   {!d ? loading && <Loading/> : <>
+   <MorningCheckIn opening={d.opening_session} onConfirmed={reload}/>
    <section><h2>Próximos recordatorios</h2><p>{upcoming ? `${upcoming.title} · ${stamp(upcoming.event_at)}` : "No hay recordatorios futuros registrados. Los abiertos siguen disponibles abajo."}</p></section>
    <section><h2>Para revisar</h2><ViewTabs value={noticeView} onChange={setNoticeView} items={[{id:"pending",label:"Sin leer"},{id:"all",label:"Todos"}]}/>{noticeView==="pending"&&!d.items.some((n:Data)=>!n.acknowledged_at)&&<Empty>Todo al día. No tienes avisos sin leer.</Empty>}
     {!d.items.length && <p>No hay avisos disponibles. Los próximos recordatorios aparecen abajo.</p>}
@@ -240,6 +242,7 @@ function Home() {
         ) : null
       ) : (
         <>
+          <MorningCheckIn opening={d.accompaniment?.opening_session} onConfirmed={reload}/>
           <section className="day-hero home-hero">
             <div className="hero-copy">
               <p className="eyebrow">TU VIDA, EN PERSPECTIVA</p>

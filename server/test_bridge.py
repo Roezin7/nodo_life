@@ -12,6 +12,17 @@ class Integration(unittest.TestCase):
  def tearDown(self):self.store.close();self.tmp.cleanup()
  def key(self):return str(uuid.uuid4())
  def call(self,op,**params):return bridge.execute(op,params)
+ def test_morning_read_does_not_ack_and_button_shares_receipt(self):
+  from morning import Morning
+  from datetime import datetime
+  from zoneinfo import ZoneInfo
+  day=datetime.now(ZoneInfo('America/Mexico_City')).date().isoformat()
+  state=Morning(self.store).ensure(day)
+  self.assertEqual(self.call('notifications')['opening_session']['state'],'pending')
+  self.assertEqual(self.call('overview')['accompaniment']['opening_session']['state'],'pending')
+  self.call('notification.ack',notice_id=state['alert_id'],request_id=self.key())
+  self.assertEqual(self.call('notifications')['opening_session']['state'],'responded')
+  self.assertEqual(self.call('overview')['accompaniment']['opening_session']['state'],'responded')
  def test_accompaniment_and_projects_share_canonical_source(self):
   from memory import canonical
   from accompaniment import PROFILE_ID
