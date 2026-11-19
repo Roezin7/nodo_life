@@ -72,7 +72,7 @@ def execute(op,p):
   if op=='agenda':return Agenda(store).read(p.get('date',today),p.get('days',7))
   if op=='tasks':
    t=tasks.task_list(status=p.get('status','all'));t['tasks']=[x for x in t['tasks'] if x['project']!='demo'];return t
-  if op=='task.capture':return tasks.task_capture(p['project'],p['title'],p['next_action'],source,p['request_id'],p.get('review_at'))
+  if op=='task.capture':return tasks.task_capture(p['project'],p['title'],p['next_action'],source,p['request_id'],p.get('review_at'),p.get('scheduled_at'))
   if op=='task.update':
    if tasks.task_get(p['task_id'])['task']['project']=='demo':raise ValueError('Registro de prueba fuera de esta vista')
    return tasks.task_update(p['task_id'],p['expected_version'],p['changes'],source,p['request_id'])

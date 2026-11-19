@@ -48,6 +48,8 @@ type Task = {
   project: string;
   status: string;
   review_at: string | null;
+  scheduled_at?: string | null;
+  google_calendar_url?: string | null;
   source: string;
 };
 const cash = (c: number | null | undefined, currency = "MXN") =>
@@ -467,6 +469,27 @@ function EntryForm({
 }
 const options = (d: Data) =>
   Object.entries(d).map(([value, label]) => ({ value, label: String(label) }));
+function calendarDraft(task: Task) {
+  if (!task.scheduled_at) return null;
+  const begin = new Date(task.scheduled_at);
+  if (Number.isNaN(begin.valueOf())) return null;
+  const ics = (date: Date) => date.toISOString().replace(/[-:]|\.\d{3}/g, "");
+  const end = new Date(begin.valueOf() + 5 * 60_000);
+  const params = new URLSearchParams({
+    action: "TEMPLATE", text: task.title, dates: ics(begin) + "/" + ics(end),
+    ctz: "America/Mexico_City", trp: "false",
+    details: "Pendiente de Nodo · " + task.id + "\nDuración real no indicada.",
+  });
+  return "https://calendar.google.com/calendar/render?" + params;
+}
+
+function dateTimeInput(value?: string | null) {
+  return value ? new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "America/Mexico_City", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  }).format(new Date(value)).replace(" ", "T") : "";
+}
+
 function Tasks() {
   const [d, reload, loading, error] = useLive<{
     tasks: Task[];
@@ -495,6 +518,8 @@ function Tasks() {
       type: "datetime-local",
       hint: "Vacío significa sin fecha. No crea una alerta externa.",
     },
+    { key: "scheduled_at", label: "Programado para (hora de México)", type: "datetime-local",
+      hint: "Al guardar, podrás abrir un borrador en Google Calendar." },
     ...(edit
       ? [
           {
@@ -557,6 +582,10 @@ function Tasks() {
                 </div>
                 <h3>{t.title}</h3>
                 <p>{t.next_action}</p>
+                {t.scheduled_at && <p>Programado para {stamp(t.scheduled_at)}</p>}
+                {t.google_calendar_url
+                  ? <a className="btn-ghost" href={t.google_calendar_url} target="_blank" rel="noopener noreferrer">Ver en Google Calendar</a>
+                  : calendarDraft(t) && <a className="btn-ghost" href={calendarDraft(t)!} target="_blank" rel="noopener noreferrer">Abrir borrador en Google Calendar</a>}
                 <small>{stamp(t.review_at)}</small>
                 <Evidence source={t.source} version={t.version} />
               </article>
@@ -581,19 +610,8 @@ function Tasks() {
             edit
               ? {
                   ...edit,
-                  review_at: edit.review_at
-                    ? new Intl.DateTimeFormat("sv-SE", {
-                        timeZone: "America/Mexico_City",
-                        year: "numeric",
-                        month: "2-digit",
-                        day: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: false,
-                      })
-                        .format(new Date(edit.review_at))
-                        .replace(" ", "T")
-                    : "",
+                  review_at: dateTimeInput(edit.review_at),
+                  scheduled_at: dateTimeInput(edit.scheduled_at),
                 }
               : { project: "nodo" }
           }
@@ -603,6 +621,7 @@ function Tasks() {
               title: v.title,
               next_action: v.next_action,
               review_at: v.review_at ? `${v.review_at}:00-06:00` : null,
+              scheduled_at: v.scheduled_at ? `${v.scheduled_at}:00-06:00` : null,
               ...(edit ? { status: v.status } : {}),
             };
             return edit

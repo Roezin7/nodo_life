@@ -104,6 +104,19 @@ class Integration(unittest.TestCase):
   self.assertEqual(Inbox(self.store).task_get(a['task']['id'])['task']['title'],'Prueba')
   self.call('task.update',task_id=a['task']['id'],expected_version=1,changes={'status':'done'},request_id=self.key())
   with self.assertRaises(ValueError):self.call('task.update',task_id=a['task']['id'],expected_version=1,changes={'status':'open'},request_id=self.key())
+ def test_task_schedule_and_calendar_link(self):
+  scheduled_at='2026-11-20T09:00:00-06:00'
+  task=self.call('task.capture',project='nodo',title='Prueba',next_action='Revisar',scheduled_at=scheduled_at,request_id=self.key())['task']
+  self.assertEqual(task['scheduled_at'],scheduled_at)
+  self.assertIsNone(task['review_at'])
+  url='https://www.google.com/calendar/event?eid=prueba'
+  changes=dict(google_calendar_url=url)
+  self.call('task.update',task_id=task['id'],expected_version=1,changes=changes,request_id=self.key())
+  saved=Inbox(self.store).task_get(task['id'])['task']
+  self.assertEqual(saved['google_calendar_url'],url)
+  self.assertEqual(saved['scheduled_at'],scheduled_at)
+  with self.assertRaises(ValueError):
+   self.call('task.update',task_id=task['id'],expected_version=2,changes={'google_calendar_url':'https://otro.example/calendar/event'},request_id=self.key())
  def test_health_no_demo_or_invented_nutrition(self):
   h=Health(self.store);h.health_capture('weight','2026-11-05',{'kg':81},'Test',self.key(),True)
   self.call('health.capture',kind='food',event_date='2026-11-05',data={'description':'Comida','state':'consumed','quantity':'1 plato'},request_id=self.key())
