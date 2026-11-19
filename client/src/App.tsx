@@ -1,4 +1,5 @@
 import HealthAnalysisPanel from "./HealthAnalysisPanel";
+import DailyFocus from "./DailyFocus";
 import MorningQuestions from "./MorningQuestions";
 import MorningCheckIn from "./MorningCheckIn";
 import {
@@ -246,6 +247,7 @@ function Home() {
       ) : (
         <>
           <MorningCheckIn opening={d.accompaniment?.opening_session} onConfirmed={reload}/>
+          {d.accompaniment?.daily_focus && <DailyFocus focus={d.accompaniment.daily_focus}/>}
           {d.accompaniment?.checkin && <MorningQuestions key={d.date} checkin={d.accompaniment.checkin} reload={reload}/>}
           <section className="day-hero home-hero">
             <div className="hero-copy">
@@ -288,8 +290,8 @@ function Home() {
             />
           </div>
           <section className="card n-card"><div className="section-head"><h2>Tu registro reciente</h2><Link to="/salud">Abrir Salud →</Link></div><p>Inicio muestra hoy. Tus registros anteriores siguen aquí, en su fecha.</p><div className="recent-health">{[...(d.health_history?.days||[])].reverse().filter((x:Data)=>x.record_count>0).map((x:Data)=><Link className="recent-health-day" key={x.date} to={`/salud?fecha=${x.date}`}><strong>{x.date}</strong><span>{x.summary.consumed_entries} ingestas · {x.record_count} registros</span><span>{x.summary.estimated_totals_of_known_entries.kcal==null?'Calorías sin estimar':`${x.summary.estimated_totals_of_known_entries.kcal} kcal registradas`}</span><small>{x.summary.meals_complete===true?'Día declarado completo':x.summary.closure_mode==='automatic'?'Cerrado automáticamente':'Día sin cierre confirmado'} · Ver registros ↗</small></Link>)}</div>{!d.health_history?.days?.some((x:Data)=>x.record_count>0)&&<p>Sin registros en los últimos siete días. No equivale a consumo cero.</p>}</section>
-          <div className="two-cols">
-            <section className="card n-card focus-card">
+          <div className={d.accompaniment?.daily_focus ? undefined : "two-cols"}>
+            {!d.accompaniment?.daily_focus && <section className="card n-card focus-card">
               <div className="section-kicker">Enfoque</div><div className="section-head">
                 <h2>Siguiente paso</h2>
                 <Link to="/tareas">Ver tareas →</Link>
@@ -309,7 +311,7 @@ function Home() {
                   tengas obligaciones.
                 </Empty>
               )}
-            </section>
+            </section>}
             <section className="card n-card">
               <div className="section-kicker">Bienestar</div><h2>Cuidarte también cuenta</h2>
               <p>
